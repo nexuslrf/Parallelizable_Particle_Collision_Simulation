@@ -7,29 +7,48 @@
 #include <xmmintrin.h>
 #include <string.h>
 
+#define RAND01 (rand()%2)
+
 typedef struct
 {
     double x;
     double y;
     double vx;
     double vy;   
+    // Speculative pts
+    /////////////////
+    double x_n;
+    double y_n;
+    double vx_n;
+    double vy_n;
+    /////////////////
 }  Particle;
+int N, L, r, S;
+char mode[6];
 
 double doubleRand(double min, double max) // return [min, max] double vars
 {
     return min+(max-min)*(rand() / (double)RAND_MAX);
 }
+double bound_pos(double p)
+{
+    int bnd_far = L-r;
+    if(p>bnd_far)
+        return bnd_far;
+    else if(p<r)
+        return r;
+    else
+        return p;
+}
 
 int main()
 {
     srand(0);
-    int N, L, r, S;
-    char mode[6];
     Particle *particles;
     freopen("./inputs.txt","r",stdin);
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
     particles = (Particle *)malloc(N * sizeof(Particle));
-    int i =0, idx;
+    int i =0,j, t, idx;
     double x, y, vx, vy;
     while(scanf("%d %lf %lf %lf %lf", &idx,&x,&y,&vx,&vy)!=EOF)
     {
@@ -43,10 +62,10 @@ int main()
     {
         for(;i<N;i++)
         {
-            particles[i].x = doubleRand(0.,L);
-            particles[i].y = doubleRand(0.,L);
-            particles[i].vx = doubleRand(L/(double)8.0/r,L/(double)4.0);
-            particles[i].vy = doubleRand(L/(double)8.0/r,L/(double)4.0);
+            particles[i].x = doubleRand(r,L-r);
+            particles[i].y = doubleRand(r,L-r);
+            particles[i].vx = (1 - 2*RAND01)*doubleRand(L/(double)8.0/r,L/(double)4.0);
+            particles[i].vy = (1 - 2*RAND01)*doubleRand(L/(double)8.0/r,L/(double)4.0);
         }
     }
     else if(i!=N)
@@ -64,6 +83,27 @@ int main()
     2. Build collision time table for processing.
     🎯
     */
+    int **colli_mat;
+    colli_mat = (int**)malloc((N+1)*sizeof(int*));
+    for(i=0; i<N+1; i++)
+    {    
+        colli_mat[i]=(int*)malloc((N+1)*sizeof(int));
+        memset(colli_mat[i],0,(N+1)*sizeof(int));
+    }
+    double *colli_time = (double*)malloc(N*(N+1)/2*sizeof(double));
+    // Start sim
+    for(t=0;t<S;t++)
+    {
+        // Step 1: speculate no collision happen, get new pos & v.
+        for(i=0; i<N; i++)
+        {
+            particles[i].x_n = bound_pos(particles[i].x + particles[i].vx);
+            particles[i].y_n = bound_pos(particles[i].y + particles[i].vy);
+        }
+        // Step 2: find all possible collision independently. fill colli_mat and colli_time.
+        
+
+    }
 
 
     fclose(stdin);
