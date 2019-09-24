@@ -67,11 +67,12 @@ double bound_pos(double p)
 int main()
 {
     srand(0);
-    Particle *particles, *P_a, *P_b;
     freopen("./inputs.txt","r",stdin);
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
+    Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
-    int i =0,j, t, idx, cnt;
+    Collision *colli;
+    int i =0,j, t, idx, cnt, real_colli, wall_x, wall_y;
     double x, y, vx, vy, lambda, lambda_1, lambda_2;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     while(scanf("%d %lf %lf %lf %lf", &idx,&x,&y,&vx,&vy)!=EOF)
@@ -116,8 +117,8 @@ int main()
     //     memset(colli_mat[i],0,(N+1)*sizeof(int));
     // }
     int *colli_mat = (int *)malloc(N*sizeof(int));
-    memset(colli_mat,0, N*sizeof(int));
     Collision *colli_time = (Collision*)malloc(N*(N+1)/2*sizeof(Collision));
+    int *colli_queue = (int *)malloc(N*sizeof(int));
     // Start sim
     double r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
@@ -130,35 +131,46 @@ int main()
         }
         // Step 2: find all possible collision independently. fill colli_mat and colli_time.
         cnt = 0;
+        real_colli = 0;
+        memset(colli_mat,0, N*sizeof(int));
         for(i=0; i<N; i++)
         {
             P_a = particles+i;
             //Case 1: collision with wall
             ///////////////
-            lambda_1 = lambda_2 = 2;
+            wall_x = wall_y = 0; // wall: 1 means reach L side, -1 means 0 side, 0 means no wall case
             if(P_a->x_n<r)
             {
                 lambda_1 = (r - P_a->x) / P_a->vx;
+                wall_x = -1;
             }
             else if(P_a->x_n>L-r)
             {
                 lambda_1 = (L-r - P_a->x) / P_a->vx;
+                wall_x = 1;
             }
 
             if(P_a->y_n<r)
             {
                 lambda_2 = (r - P_a->y) / P_a->vy;
+                wall_y = -1;
             }
             else if(P_a->y_n>L-r)
             {
                 lambda_2 = (L-r - P_a->y) / P_a->vy;
+                wall_y = 1;
             }
-            lambda = lambda_1 < lambda_2? lambda_1:lambda_2;
+            // lambda = lambda_1 < lambda_2? lambda_1:lambda_2;       
+            if(wall_x!=0 && wall_y!=0)
+            {
+                lambda = lambda_1 < lambda_2? lambda_1:lambda_2;
+                if(lambda_1==lambda_2)
+            }
             if(lambda < 1)
             {
                 colli_time[cnt].time = lambda;
                 colli_time[cnt].pa = i;
-                colli_time[cnt].pb = N;
+                colli_time[cnt].pb = N; // used
                 cnt++;
             }
             ///////////////
@@ -206,28 +218,28 @@ int main()
         }
         // Step 3: sort collision table and process collision
         // Sort collision
+        qsort(colli_time, cnt, sizeof(Collision), compare);
+        // Filter out true collision.
+        for(i=0;i<cnt;i++)
+        {
+            colli = colli_time+i;
+            if(!(colli_mat[colli->pa]|colli_mat[colli->pb]))
+            {
+                colli_mat[colli->pa] = 1;
+                colli_mat[colli->pb] = 1;
+                colli_queue[real_colli++] = i;
+            }
+        }
+        for(i=0;i<real_colli;i++)
+        {
 
-
+        }
     }
-    // Test qsort()
-    for(i=0; i<10; i++)
-    {
-        colli_time[i].time = doubleRand(0,10);
-        colli_time[i].pa = i;
-        colli_time[i].pb = i+1;
-    }
-    colli_time[3].time = colli_time[7].time=colli_time[5].time = 1.0;
-    colli_time[3].pa = 1; colli_time[3].pb = 2; 
-    colli_time[7].pa = 1; colli_time[7].pb = 0; 
-    colli_time[5].pa = 2; colli_time[5].pb = 3; 
-    qsort (colli_time, 10, sizeof(Collision), compare);
-    for(i=0; i<10; i++)
-        printf("%10.8f %d %d\n", colli_time[i].time, colli_time[i].pa, colli_time[i].pb);
-
-
+    
     fclose(stdin);
     free(particles);
     free(colli_time);
     free(colli_mat);
+    free(colli_queue);
     return 0;
 }
