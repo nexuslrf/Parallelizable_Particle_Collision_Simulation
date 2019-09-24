@@ -32,18 +32,18 @@ typedef struct
 } Collision;
 int compare (const void * a, const void * b)
 {
-    Collision *colli_A = a;
-    Collision *colli_B = b;
-    double cmpf = colli_B->time - colli_A->time;
+    Collision *colli_A = (Collision*)a;
+    Collision *colli_B = (Collision*)b;
+    double cmpf = colli_A->time - colli_B->time;
     if(cmpf!=0)
         return cmpf<0?-1:1;
     else
     {
-        int cmpt = colli_B->pa - colli_A->pa;
+        int cmpt = colli_A->pa - colli_B->pa;
         if(cmpt!=0)
             return cmpt;
         else
-            return colli_B->pb - colli_A->pb;
+            return colli_A->pb - colli_B->pb;
     }
 }
 int N, L, r, S;
@@ -173,7 +173,7 @@ int main()
                 {
                     colli_time[cnt].time = 0;
                     colli_time[cnt].pa = i;
-                    colli_time[cnt].pb = j;
+                    colli_time[cnt].pb = j; // pa always smaller than pb
                     cnt++;
                     break; // no need to further detect.
                 }
@@ -205,9 +205,24 @@ int main()
             }
         }
         // Step 3: sort collision table and process collision
-        
+        // Sort collision
+
 
     }
+    // Test qsort()
+    for(i=0; i<10; i++)
+    {
+        colli_time[i].time = doubleRand(0,10);
+        colli_time[i].pa = i;
+        colli_time[i].pb = i+1;
+    }
+    colli_time[3].time = colli_time[7].time=colli_time[5].time = 1.0;
+    colli_time[3].pa = 1; colli_time[3].pb = 2; 
+    colli_time[7].pa = 1; colli_time[7].pb = 0; 
+    colli_time[5].pa = 2; colli_time[5].pb = 3; 
+    qsort (colli_time, 10, sizeof(Collision), compare);
+    for(i=0; i<10; i++)
+        printf("%10.8f %d %d\n", colli_time[i].time, colli_time[i].pa, colli_time[i].pb);
 
 
     fclose(stdin);
