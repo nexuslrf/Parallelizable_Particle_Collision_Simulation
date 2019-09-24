@@ -72,7 +72,7 @@ int main()
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli, wall_x, wall_y;
+    int i =0,j, t, idx, cnt, real_colli;
     double x, y, vx, vy, lambda, lambda_1, lambda_2;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     while(scanf("%d %lf %lf %lf %lf", &idx,&x,&y,&vx,&vy)!=EOF)
@@ -138,39 +138,33 @@ int main()
             P_a = particles+i;
             //Case 1: collision with wall
             ///////////////
-            wall_x = wall_y = 0; // wall: 1 means reach L side, -1 means 0 side, 0 means no wall case
+            lambda_1 = lambda_2 = 2;
             if(P_a->x_n<r)
             {
                 lambda_1 = (r - P_a->x) / P_a->vx;
-                wall_x = -1;
             }
             else if(P_a->x_n>L-r)
             {
                 lambda_1 = (L-r - P_a->x) / P_a->vx;
-                wall_x = 1;
             }
 
             if(P_a->y_n<r)
             {
                 lambda_2 = (r - P_a->y) / P_a->vy;
-                wall_y = -1;
             }
             else if(P_a->y_n>L-r)
             {
                 lambda_2 = (L-r - P_a->y) / P_a->vy;
-                wall_y = 1;
             }
-            // lambda = lambda_1 < lambda_2? lambda_1:lambda_2;       
-            if(wall_x!=0 && wall_y!=0)
-            {
-                lambda = lambda_1 < lambda_2? lambda_1:lambda_2;
-                if(lambda_1==lambda_2)
-            }
+            lambda = lambda_1 < lambda_2? lambda_1:lambda_2;
             if(lambda < 1)
             {
                 colli_time[cnt].time = lambda;
                 colli_time[cnt].pa = i;
-                colli_time[cnt].pb = N; // used
+                if(lambda_1 == lambda_2) // Cornor collision!
+                    colli_time[cnt].pb = N+1; // N+1 to present this case.
+                else
+                    colli_time[cnt].pb = N; // N to present this case.
                 cnt++;
             }
             ///////////////
