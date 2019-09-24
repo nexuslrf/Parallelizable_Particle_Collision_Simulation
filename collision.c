@@ -20,8 +20,6 @@ typedef struct
     /////////////////
     double x_n;
     double y_n;
-    double vx_n;
-    double vy_n;
     /////////////////
 }  Particle;
 typedef struct
@@ -72,7 +70,7 @@ int main()
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli;
+    int i =0,j, t, idx, cnt, real_colli, wall_colli;
     double x, y, vx, vy, lambda, lambda_1, lambda_2;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     while(scanf("%d %lf %lf %lf %lf", &idx,&x,&y,&vx,&vy)!=EOF)
@@ -139,32 +137,48 @@ int main()
             //Case 1: collision with wall
             ///////////////
             lambda_1 = lambda_2 = 2;
+            wall_colli = 0;
             if(P_a->x_n<r)
             {
                 lambda_1 = (r - P_a->x) / P_a->vx;
+                wall_colli = 1;
             }
             else if(P_a->x_n>L-r)
             {
                 lambda_1 = (L-r - P_a->x) / P_a->vx;
+                wall_colli = 1;
             }
 
             if(P_a->y_n<r)
             {
                 lambda_2 = (r - P_a->y) / P_a->vy;
+                wall_colli = 1;
             }
             else if(P_a->y_n>L-r)
             {
                 lambda_2 = (L-r - P_a->y) / P_a->vy;
+                wall_colli = 1;
             }
-            lambda = lambda_1 < lambda_2? lambda_1:lambda_2;
-            if(lambda < 1)
+
+            if(wall_colli)
             {
-                colli_time[cnt].time = lambda;
                 colli_time[cnt].pa = i;
-                if(lambda_1 == lambda_2) // Cornor collision!
-                    colli_time[cnt].pb = N+1; // N+1 to present this case.
-                else
+                lambda = lambda_1-lambda_2;
+                if(lambda==0) // Cornor collision!
+                {
                     colli_time[cnt].pb = N; // N to present this case.
+                    colli_time[cnt].time = lambda_1;
+                }
+                else if(lambda<0) // x wall collision!
+                {
+                    colli_time[cnt].pb = N+1; // N+1 to present this case.
+                    colli_time[cnt].time = lambda_1;
+                }
+                else if(lambda>0) // y wall collision!
+                {
+                    colli_time[cnt].pb = N+2; // N+2 to present this case.
+                    colli_time[cnt].time = lambda_2;
+                }
                 cnt++;
             }
             ///////////////
@@ -217,16 +231,51 @@ int main()
         for(i=0;i<cnt;i++)
         {
             colli = colli_time+i;
-            if(!(colli_mat[colli->pa]|colli_mat[colli->pb]))
+            if(!colli_mat[colli->pa])
             {
-                colli_mat[colli->pa] = 1;
-                colli_mat[colli->pb] = 1;
-                colli_queue[real_colli++] = i;
+                if(colli->pb>=N)
+                {
+                    colli_mat[colli->pa] = 1;
+                    colli_queue[real_colli++] = i;
+                }
+                else if(!colli_mat[colli->pb])
+                {
+                    colli_mat[colli->pa] = 1;
+                    colli_mat[colli->pb] = 1;
+                    colli_queue[real_colli++] = i;
+                }
             }
         }
+        // Now let's see momentum; Potential improvements: separate diff case for diff thread
         for(i=0;i<real_colli;i++)
         {
-
+            colli = colli_time + colli_queue[i];
+            if(colli->pb==N) // Cornor colli; 
+            {
+                P_a = particles + colli->pa;
+                P_a->vx = -1*P_a->vx;
+                P_a->vy = -1*P_a->vy;
+                P_a->x_n = (1-2*colli->time)*P_a->vx;
+                P_a->y_n = (1-2*colli->time)*P_a->vy; 
+            }
+            else if(colli->pb==N+1)//  X wall colli;
+            {
+                P_a = particles + colli->pa;
+                P_a->vx = -1*P_a->vx;
+                P_a->x_n = (1-2*colli->time)*P_a->vx;
+            }
+            else if(colli->pb==N+2)// Y wall colli;
+            {
+                P_a = particles + colli->pa;
+                P_a->vy = -1*P_a->vy;
+                P_a->y_n = (1-2*colli->time)*P_a->vy;
+            }
+            else // P-P colli;
+            {
+                P_a = particles + colli->pa;
+                P_b = particles + colli->pb;
+                
+            }
         }
     }
     
