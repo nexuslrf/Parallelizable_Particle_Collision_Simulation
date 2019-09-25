@@ -116,7 +116,7 @@ int main()
     2. Build collision time table for processing.
     🎯
     */
-
+    // TODO: check why Nan appears; fix bond_pos;
     // int **colli_mat;
     // colli_mat = (int**)malloc((N+1)*sizeof(int*));
     // for(i=0; i<N+1; i++)
