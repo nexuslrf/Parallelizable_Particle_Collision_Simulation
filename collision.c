@@ -124,9 +124,6 @@ int main()
     2. Build collision time table for processing.
     🎯
     */
-    /* @todo Check why Nan appears: Overlap case -> 2 particles completely overlap! 
-             fix bound_pos: 
-    */
     // int **colli_mat;
     // colli_mat = (int**)malloc((N+1)*sizeof(int*));
     // for(i=0; i<N+1; i++)
