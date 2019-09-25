@@ -16,6 +16,8 @@ typedef struct
     double y;
     double vx;
     double vy;   
+    int colli_p;
+    int colli_w;
     // Speculative pts
     /////////////////
     double x_n;
@@ -70,25 +72,33 @@ int main()
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli, wall_colli;
+    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0;
     double x, y, vx, vy, lambda, lambda_1, lambda_2;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
+    if(!strcmp(mode,"print"))
+        output = 1;
     while(scanf("%d %lf %lf %lf %lf", &idx,&x,&y,&vx,&vy)!=EOF)
     {
         i++;
-        particles[idx].x = x;
-        particles[idx].y = y;
-        particles[idx].vx = vx;
-        particles[idx].vy = vy;
+        P_a = particles + idx;
+        P_a->x = x;
+        P_a->y = y;
+        P_a->vx = vx;
+        P_a->vy = vy;
+        P_a->colli_p = 0;
+        P_a->colli_w = 0;
     }
     if(i==0)
     {
         for(;i<N;i++)
         {
-            particles[i].x = doubleRand(r,L-r);
-            particles[i].y = doubleRand(r,L-r);
-            particles[i].vx = (1 - 2*RAND01)*doubleRand(L/(double)8.0/r,L/(double)4.0);
-            particles[i].vy = (1 - 2*RAND01)*doubleRand(L/(double)8.0/r,L/(double)4.0);
+            P_a = particles + i;
+            P_a->x = doubleRand(r,L-r);
+            P_a->y = doubleRand(r,L-r);
+            P_a->vx = (1 - 2*RAND01)*doubleRand(L/(double)8.0/r,L/(double)4.0);
+            P_a->vy = (1 - 2*RAND01)*doubleRand(L/(double)8.0/r,L/(double)4.0);
+            P_a->colli_p = 0;
+            P_a->colli_w = 0;
         }
     }
     else if(i!=N)
@@ -237,12 +247,15 @@ int main()
                 {
                     colli_mat[colli->pa] = 1;
                     colli_queue[real_colli++] = i;
+                    particles[colli->pa].colli_w++;
                 }
                 else if(!colli_mat[colli->pb])
                 {
                     colli_mat[colli->pa] = 1;
                     colli_mat[colli->pb] = 1;
                     colli_queue[real_colli++] = i;
+                    particles[colli->pa].colli_p++;
+                    particles[colli->pb].colli_p++;
                 }
             }
         }
@@ -302,7 +315,25 @@ int main()
                 P_b->y_n = P_b->y_n + Delta*P_b->vy;
             }
         }
+        // To ensure particles in the square
+        for(i=0;i<N;i++)
+        {
+            P_a = particles+i;
+            P_a->x = bound_pos(P_a->x_n);
+            P_a->y = bound_pos(P_a->y_n);
+        }
+        // To Output Result:
+        if(output)
+        {
+            for(i=0; i<N; i++)
+                printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf\n",t+1, i, 
+                    particles[i].x, particles[i].y, particles[i].vx, particles[i].vy);
+        }
     }
+    for(i=0; i<N; i++)
+        printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i, 
+                particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
+                particles[i].colli_p, particles[i].colli_w);
     
     fclose(stdin);
     free(particles);
