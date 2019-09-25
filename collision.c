@@ -274,7 +274,32 @@ int main()
             {
                 P_a = particles + colli->pa;
                 P_b = particles + colli->pb;
-                
+                P_a->x_n = P_a->x + colli->time*P_a->vx;
+                P_a->y_n = P_a->y + colli->time*P_a->vy;
+                P_b->x_n = P_b->x + colli->time*P_b->vx;
+                P_b->y_n = P_b->y + colli->time*P_b->vy;
+                Dx = P_b->x_n - P_a->x_n;
+                Dy = P_b->y_n - P_a->y_n;
+                Delta = 1 - colli->time;
+                /* To reduce var: 
+                 dx1: nv1; dy1: tv1; 
+                 dx2: nv2; dy2: tv2;
+                */
+                dx1 = Dx*P_a->vx + Dy*P_a->vy;
+                dy1 = Dx*P_a->vy - Dy*P_a->vx; 
+                dx2 = Dx*P_b->vx + Dy*P_b->vy;
+                dy2 = Dx*P_b->vy - Dy*P_b->vx; 
+                DDpDD = Dx*Dx + Dy*Dy;
+                // Update velocities
+                P_a->vx = (dx2*Dx-dy1*Dy)/DDpDD;
+                P_a->vy = (dx2*Dy+dy1*Dx)/DDpDD;
+                P_b->vx = (dx1*Dx-dy2*Dy)/DDpDD;
+                P_b->vy = (dx1*Dy+dy2*Dx)/DDpDD;
+                // Update position
+                P_a->x_n = P_a->x_n + Delta*P_a->vx;
+                P_a->y_n = P_a->y_n + Delta*P_a->vy;
+                P_b->x_n = P_b->x_n + Delta*P_b->vx;
+                P_b->y_n = P_b->y_n + Delta*P_b->vy;
             }
         }
     }
