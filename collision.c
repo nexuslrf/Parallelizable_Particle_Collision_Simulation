@@ -60,11 +60,11 @@ void bound_pos(Particle *p)
     if(p->x_n>bnd_far)
         tx = (p->x_n-bnd_far)/p->vx;
     else if(p->x_n<r)
-        tx = (p->x_n-r)/p->vx;
+        tx = (r-p->x_n)/p->vx;
     if(p->y_n>bnd_far)
         ty = (p->y_n-bnd_far)/p->vy;
     else if(p->y_n<r)
-        ty = (p->y_n-r)/p->vy;
+        ty = (r-p->y_n)/p->vy;
     
     tx =ty = tx>ty?tx:ty;
     p->x_n = p->x_n - tx*p->vx;
@@ -143,6 +143,7 @@ int main()
         {
             particles[i].x_n = particles[i].x + particles[i].vx;
             particles[i].y_n = particles[i].y + particles[i].vy;
+            printf("[Debug:pos_n] %d %10.8f %10.8f\n",i, particles[i].x_n, particles[i].y_n);
         }
         // Step 2: find all possible collision independently. fill colli_mat and colli_time.
         cnt = 0;
@@ -163,7 +164,7 @@ int main()
             }
             else if(P_a->x_n>bnd_far)
             {
-                lambda_1 = (bnd_far - P_a->x) / P_a->vx;
+                lambda_1 = (P_a->x - bnd_far) / P_a->vx;
                 wall_colli = 1;
             }
 
@@ -174,7 +175,7 @@ int main()
             }
             else if(P_a->y_n>bnd_far)
             {
-                lambda_2 = (bnd_far - P_a->y) / P_a->vy;
+                lambda_2 = (P_a->y - bnd_far) / P_a->vy;
                 wall_colli = 1;
             }
 
@@ -273,27 +274,28 @@ int main()
         for(i=0;i<real_colli;i++)
         {
             colli = colli_time + colli_queue[i];
+            printf("[Debug:neg] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
             if(colli->pb==N) // Cornor colli; 
             {
                 P_a = particles + colli->pa;
                 P_a->vx = -1*P_a->vx;
                 P_a->vy = -1*P_a->vy;
-                P_a->x_n = (1-2*colli->time)*P_a->vx;
-                P_a->y_n = (1-2*colli->time)*P_a->vy; 
+                P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
+                P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy; 
                 bound_pos(P_a);
             }
             else if(colli->pb==N+1)//  X wall colli;
             {
                 P_a = particles + colli->pa;
                 P_a->vx = -1*P_a->vx;
-                P_a->x_n = (1-2*colli->time)*P_a->vx;
+                P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
                 bound_pos(P_a);
             }
             else if(colli->pb==N+2)// Y wall colli;
             {
                 P_a = particles + colli->pa;
                 P_a->vy = -1*P_a->vy;
-                P_a->y_n = (1-2*colli->time)*P_a->vy;
+                P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy;
                 bound_pos(P_a);
             }
             else // P-P colli;
@@ -349,10 +351,10 @@ int main()
                     particles[i].x, particles[i].y, particles[i].vx, particles[i].vy);
         }
     }
-    for(i=0; i<N; i++)
-        printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i, 
-                particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
-                particles[i].colli_p, particles[i].colli_w);
+    // for(i=0; i<N; i++)
+    //     printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i, 
+    //             particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
+    //             particles[i].colli_p, particles[i].colli_w);
     
     fclose(stdin);
     free(particles);
