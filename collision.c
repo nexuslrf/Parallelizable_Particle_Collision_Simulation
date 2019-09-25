@@ -60,11 +60,11 @@ void bound_pos(Particle *p)
     if(p->x_n>bnd_far)
         tx = (p->x_n-bnd_far)/p->vx;
     else if(p->x_n<r)
-        tx = (r-p->x_n)/p->vx;
+        tx = (p->x_n-r)/p->vx;
     if(p->y_n>bnd_far)
         ty = (p->y_n-bnd_far)/p->vy;
     else if(p->y_n<r)
-        ty = (r-p->y_n)/p->vy;
+        ty = (p->y_n-r)/p->vy;
     
     tx =ty = tx>ty?tx:ty;
     p->x_n = p->x_n - tx*p->vx;
@@ -159,7 +159,7 @@ int main()
             // printf("[Debug:before_colli] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
             if(P_a->x_n<r)
             {
-                lambda_1 = (r - P_a->x) / P_a->vx;
+                lambda_1 = (P_a->x - r) / P_a->vx;
                 wall_colli = 1;
             }
             else if(P_a->x_n>bnd_far)
@@ -170,7 +170,7 @@ int main()
 
             if(P_a->y_n<r)
             {
-                lambda_2 = (r - P_a->y) / P_a->vy;
+                lambda_2 = (P_a->y - r) / P_a->vy;
                 wall_colli = 1;
             }
             else if(P_a->y_n>bnd_far)
@@ -296,6 +296,7 @@ int main()
                 P_a = particles + colli->pa;
                 P_a->vy = -1*P_a->vy;
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy;
+                printf("[Debug:Y wall Colli] Pa: %10.8f %10.8f\n", P_a->x_n,P_a->y_n);
                 bound_pos(P_a);
             }
             else // P-P colli;
@@ -306,6 +307,7 @@ int main()
                 P_a->y_n = P_a->y + colli->time*P_a->vy;
                 P_b->x_n = P_b->x + colli->time*P_b->vx;
                 P_b->y_n = P_b->y + colli->time*P_b->vy;
+                printf("[Debug:P-P Colli] Pa: %10.8f %10.8f Pb: %10.8f %10.8f\n", P_a->x_n,P_a->y_n,P_b->x_n,P_b->y_n);
                 Dx = P_b->x_n - P_a->x_n;
                 Dy = P_b->y_n - P_a->y_n;
                 Delta = 1 - colli->time;
