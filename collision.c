@@ -53,15 +53,22 @@ double doubleRand(double min, double max) // return [min, max] double vars
 {
     return min+(max-min)*(rand() / (double)RAND_MAX);
 }
-double bound_pos(double p)
+void bound_pos(Particle *p)
 {
     int bnd_far = L-r;
-    if(p>bnd_far)
-        return bnd_far;
-    else if(p<r)
-        return r;
-    else
-        return p;
+    double tx=0,ty=0;
+    if(p->x_n>bnd_far)
+        tx = (p->x_n-bnd_far)/p->vx;
+    else if(p->x_n<r)
+        tx = (p->x_n-r)/p->vx;
+    if(p->y_n>bnd_far)
+        ty = (p->y_n-bnd_far)/p->vy;
+    else if(p->y_n<r)
+        ty = (p->y_n-r)/p->vy;
+    
+    tx =ty = tx>ty?tx:ty;
+    p->x_n = p->x_n - tx*p->vx;
+    p->y_n = p->y_n - ty*p->vy;
 }
 
 int main()
@@ -72,11 +79,12 @@ int main()
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0;
+    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far;
     double x, y, vx, vy, lambda, lambda_1, lambda_2;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     if(!strcmp(mode,"print"))
         output = 1;
+    bnd_far = L-r;
     while(scanf("%d %lf %lf %lf %lf", &idx,&x,&y,&vx,&vy)!=EOF)
     {
         i++;
@@ -93,8 +101,8 @@ int main()
         for(;i<N;i++)
         {
             P_a = particles + i;
-            P_a->x = doubleRand(r,L-r);
-            P_a->y = doubleRand(r,L-r);
+            P_a->x = doubleRand(r,bnd_far);
+            P_a->y = doubleRand(r,bnd_far);
             P_a->vx = (1 - 2*RAND01)*doubleRand(L/(double)8.0/r,L/(double)4.0);
             P_a->vy = (1 - 2*RAND01)*doubleRand(L/(double)8.0/r,L/(double)4.0);
             P_a->colli_p = 0;
@@ -117,7 +125,7 @@ int main()
     🎯
     */
     /* @todo Check why Nan appears: Overlap case -> 2 particles completely overlap! 
-             fix bond_pos: 
+             fix bound_pos: 
     */
     // int **colli_mat;
     // colli_mat = (int**)malloc((N+1)*sizeof(int*));
@@ -150,14 +158,15 @@ int main()
             ///////////////
             lambda_1 = lambda_2 = 2;
             wall_colli = 0;
+            // printf("[Debug:before_colli] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
             if(P_a->x_n<r)
             {
                 lambda_1 = (r - P_a->x) / P_a->vx;
                 wall_colli = 1;
             }
-            else if(P_a->x_n>L-r)
+            else if(P_a->x_n>bnd_far)
             {
-                lambda_1 = (L-r - P_a->x) / P_a->vx;
+                lambda_1 = (bnd_far - P_a->x) / P_a->vx;
                 wall_colli = 1;
             }
 
@@ -166,14 +175,15 @@ int main()
                 lambda_2 = (r - P_a->y) / P_a->vy;
                 wall_colli = 1;
             }
-            else if(P_a->y_n>L-r)
+            else if(P_a->y_n>bnd_far)
             {
-                lambda_2 = (L-r - P_a->y) / P_a->vy;
+                lambda_2 = (bnd_far - P_a->y) / P_a->vy;
                 wall_colli = 1;
             }
 
             if(wall_colli)
             {
+                // printf("[Debug:Colli_wall] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
                 colli_time[cnt].pa = i;
                 lambda = lambda_1-lambda_2;
                 if(lambda==0) // Cornor collision!
@@ -194,7 +204,7 @@ int main()
                 cnt++;
             }
             ///////////////
-            for(j=i+1; i<N; i++)
+            for(j=i+1; j<N; j++)
             {
                 P_b = particles+j;
                 // Case 2: overlap at startup
@@ -239,6 +249,7 @@ int main()
         // Step 3: sort collision table and process collision
         // Sort collision
         qsort(colli_time, cnt, sizeof(Collision), compare);
+
         // Filter out true collision.
         for(i=0;i<cnt;i++)
         {
@@ -272,18 +283,21 @@ int main()
                 P_a->vy = -1*P_a->vy;
                 P_a->x_n = (1-2*colli->time)*P_a->vx;
                 P_a->y_n = (1-2*colli->time)*P_a->vy; 
+                bound_pos(P_a);
             }
             else if(colli->pb==N+1)//  X wall colli;
             {
                 P_a = particles + colli->pa;
                 P_a->vx = -1*P_a->vx;
                 P_a->x_n = (1-2*colli->time)*P_a->vx;
+                bound_pos(P_a);
             }
             else if(colli->pb==N+2)// Y wall colli;
             {
                 P_a = particles + colli->pa;
                 P_a->vy = -1*P_a->vy;
                 P_a->y_n = (1-2*colli->time)*P_a->vy;
+                bound_pos(P_a);
             }
             else // P-P colli;
             {
@@ -305,24 +319,30 @@ int main()
                 dx2 = Dx*P_b->vx + Dy*P_b->vy;
                 dy2 = Dx*P_b->vy - Dy*P_b->vx; 
                 DDpDD = Dx*Dx + Dy*Dy;
-                // Update velocities
-                P_a->vx = (dx2*Dx-dy1*Dy)/DDpDD;
-                P_a->vy = (dx2*Dy+dy1*Dx)/DDpDD;
-                P_b->vx = (dx1*Dx-dy2*Dy)/DDpDD;
-                P_b->vy = (dx1*Dy+dy2*Dx)/DDpDD;
+                if(DDpDD!=0)
+                {
+                    // Update velocities
+                    P_a->vx = (dx2*Dx-dy1*Dy)/DDpDD;
+                    P_a->vy = (dx2*Dy+dy1*Dx)/DDpDD;
+                    P_b->vx = (dx1*Dx-dy2*Dy)/DDpDD;
+                    P_b->vy = (dx1*Dy+dy2*Dx)/DDpDD;
+                }
                 // Update position
                 P_a->x_n = P_a->x_n + Delta*P_a->vx;
                 P_a->y_n = P_a->y_n + Delta*P_a->vy;
+                bound_pos(P_a);
                 P_b->x_n = P_b->x_n + Delta*P_b->vx;
                 P_b->y_n = P_b->y_n + Delta*P_b->vy;
+                bound_pos(P_b);
+                //
             }
         }
-        // To ensure particles in the square
+        // Safe update
         for(i=0;i<N;i++)
         {
             P_a = particles+i;
-            P_a->x = bound_pos(P_a->x_n);
-            P_a->y = bound_pos(P_a->y_n);
+            P_a->x = P_a->x_n;
+            P_a->y = P_a->y_n;
         }
         // To Output Result:
         if(output)
