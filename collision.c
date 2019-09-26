@@ -143,7 +143,7 @@ int main()
         {
             particles[i].x_n = particles[i].x + particles[i].vx;
             particles[i].y_n = particles[i].y + particles[i].vy;
-            printf("[Debug:pos_n] %d %10.8f %10.8f\n",i, particles[i].x_n, particles[i].y_n);
+            // printf("[Debug:pos_n] %d %10.8f %10.8f\n",i, particles[i].x_n, particles[i].y_n);
         }
         // Step 2: find all possible collision independently. fill colli_mat and colli_time.
         cnt = 0;
@@ -274,7 +274,7 @@ int main()
         for(i=0;i<real_colli;i++)
         {
             colli = colli_time + colli_queue[i];
-            printf("[Debug:neg] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            // printf("[Debug:neg] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
             if(colli->pb==N) // Cornor colli; 
             {
                 P_a = particles + colli->pa;
@@ -296,7 +296,7 @@ int main()
                 P_a = particles + colli->pa;
                 P_a->vy = -1*P_a->vy;
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy;
-                printf("[Debug:Y wall Colli] Pa: %10.8f %10.8f\n", P_a->x_n,P_a->y_n);
+                // printf("[Debug:Y wall Colli] Pa: %10.8f %10.8f\n", P_a->x_n,P_a->y_n);
                 bound_pos(P_a);
             }
             else // P-P colli;
@@ -307,7 +307,7 @@ int main()
                 P_a->y_n = P_a->y + colli->time*P_a->vy;
                 P_b->x_n = P_b->x + colli->time*P_b->vx;
                 P_b->y_n = P_b->y + colli->time*P_b->vy;
-                printf("[Debug:P-P Colli] Pa: %10.8f %10.8f Pb: %10.8f %10.8f\n", P_a->x_n,P_a->y_n,P_b->x_n,P_b->y_n);
+                // printf("[Debug:P-P Colli] Pa: %10.8f %10.8f Pb: %10.8f %10.8f\n", P_a->x_n,P_a->y_n,P_b->x_n,P_b->y_n);
                 Dx = P_b->x_n - P_a->x_n;
                 Dy = P_b->y_n - P_a->y_n;
                 Delta = 1 - colli->time;
@@ -353,10 +353,10 @@ int main()
                     particles[i].x, particles[i].y, particles[i].vx, particles[i].vy);
         }
     }
-    // for(i=0; i<N; i++)
-    //     printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i, 
-    //             particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
-    //             particles[i].colli_p, particles[i].colli_w);
+    for(i=0; i<N; i++)
+        printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i, 
+                particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
+                particles[i].colli_p, particles[i].colli_w);
     
     fclose(stdin);
     free(particles);
