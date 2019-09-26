@@ -23,11 +23,11 @@ $\vec{EF} = -\vec{AE}+\vec{AB}+\vec{BF}$
 
 $\vec{EF} = \left(\lambda(x_2'-x_1'+x_1-x_2)+x_2-x_1,\lambda(y_2'-y_1'+y_1-y_2)+y_2-y_1\right)$
 
-given $||\vec{EF}||^2=4r^2$, set $\varDelta_x=x_2-x_1$ ....; $D_x = \varDelta_x'-\varDelta_x$ ...
+given $||\vec{EF}||^2=4r^2$, set $\Delta_x=x_2-x_1$ ....; $D_x = \Delta_x'-\Delta_x$ ...
 
 $\Rightarrow$
 
-$\lambda^2(D_x^2-D_y^2)+2\lambda(\varDelta_xD_x+\varDelta_yD_y)+\varDelta_x^2+\varDelta_y^2-4r^2=0$
+$\lambda^2(D_x^2-D_y^2)+2\lambda(\Delta_xD_x+\Delta_yD_y)+\Delta_x^2+\Delta_y^2-4r^2=0$
 
 $\Rightarrow$
 
