@@ -37,6 +37,12 @@ $\lambda = $ blabla...
 
 For parallelism,  for the same sequential code, we can try to parallel it in different ways. 
 
-Most parts can be parallelized similarly, but we can try different ways of parallelism for the nested for-loop(i,j) in line 157 of p1.c.
+For p1.c, p2.c and p3.c, the difference is around line 160. p1.c only parallelizes the outer i loop, p2.c just parallelizes the inner j loop while p3.c parallelizes them both.
 
-I have already tried parallelism for the outer loop. Basically, it makes the program around 3 times faster.  69.052283903s for seqential and 25.421331942 for p1 based on the newest inputs.txt
+Under the case where schedule are all static, p2 performs best around 8s (based on inputs.txt). p1 follows with around 30s and p3 performs worst like 200+ secs.
+
+For p1d.c, I change the schedule in two of the parallelism into dynamic(line 160 and 300). This improves the performance of p1, into like 20s. 
+
+But the same improvement does not work for the inner loop. It turns the performance into 90s.
+
+Overall, the best one is p2.c (inner j loop with static schedule).

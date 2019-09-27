@@ -155,8 +155,7 @@ int main()
         real_colli = 0;
         memset(colli_mat,0, N*sizeof(int));
         //start parallelism
-#pragma omp parallel for shared(cnt,colli_time,particles) private(j,dx1,dy1,P_a,P_b,lambda_1,\
-                lambda_2,lambda,wall_colli,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD)
+
         for(i=0; i<N; i++)
         {
             P_a = particles+i;
@@ -190,11 +189,7 @@ int main()
             if(wall_colli)
             {
                 // printf("[Debug:Colli_wall] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
-                int count;
-#pragma omp critical
-                {
-                    count=cnt++;
-                }
+                int count=cnt++;
                 colli_time[count].pa = i;
                 lambda = lambda_1-lambda_2;
                 if(lambda==0) // Cornor collision!
@@ -214,8 +209,12 @@ int main()
                 }
             }
             ///////////////
+            int flag=0;
+#pragma omp parallel for shared(cnt,colli_time,particles,P_a) private(dx1,dy1,P_b,lambda_1,\
+                lambda_2,lambda,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD)
             for(j=i+1; j<N; j++)
             {
+                if(flag) continue;
                 P_b = particles+j;
                 // Case 2: overlap at startup
                 ////////////////
@@ -231,7 +230,8 @@ int main()
                     colli_time[count].time = 0;
                     colli_time[count].pa = i;
                     colli_time[count].pb = j; // pa always smaller than pb
-                    break; // no need to further detect.
+                    flag=1; // no need to further detect.
+                    continue;
                 }
                 ////////////////
                 // Case 3: Normal collision case

@@ -88,6 +88,7 @@ int main()
     if(!strcmp(mode,"print"))
         output = 1;
     bnd_far = L-r;
+
     while(scanf("%d %lf %lf %lf %lf", &idx,&x,&y,&vx,&vy)!=EOF)
     {
         i++;
@@ -155,6 +156,7 @@ int main()
         real_colli = 0;
         memset(colli_mat,0, N*sizeof(int));
         //start parallelism
+        omp_set_nested(1);// enable nested omp
 #pragma omp parallel for shared(cnt,colli_time,particles) private(j,dx1,dy1,P_a,P_b,lambda_1,\
                 lambda_2,lambda,wall_colli,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD)
         for(i=0; i<N; i++)
@@ -214,8 +216,12 @@ int main()
                 }
             }
             ///////////////
+            int flag=0;
+#pragma omp parallel for shared(cnt,colli_time,particles,P_a) private(dx1,dy1,P_b,lambda_1,\
+                lambda_2,lambda,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD)
             for(j=i+1; j<N; j++)
             {
+                if(flag) continue;
                 P_b = particles+j;
                 // Case 2: overlap at startup
                 ////////////////
@@ -231,7 +237,8 @@ int main()
                     colli_time[count].time = 0;
                     colli_time[count].pa = i;
                     colli_time[count].pb = j; // pa always smaller than pb
-                    break; // no need to further detect.
+                    flag=1; // no need to further detect.
+                    continue;
                 }
                 ////////////////
                 // Case 3: Normal collision case

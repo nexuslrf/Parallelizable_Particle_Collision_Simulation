@@ -9,6 +9,7 @@
 #include <math.h>
 
 #define RAND01 (rand()%2)
+#define T_NUM 4
 
 typedef struct
 {
@@ -81,10 +82,11 @@ int main()
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far,time1,time2;
+    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far,time1,time2,threads;
     double x, y, vx, vy, lambda, lambda_1, lambda_2,time;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     time1=clock();
+    omp_set_num_threads(T_NUM);
     if(!strcmp(mode,"print"))
         output = 1;
     bnd_far = L-r;
@@ -156,9 +158,10 @@ int main()
         memset(colli_mat,0, N*sizeof(int));
         //start parallelism
 #pragma omp parallel for shared(cnt,colli_time,particles) private(j,dx1,dy1,P_a,P_b,lambda_1,\
-                lambda_2,lambda,wall_colli,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD)
+                lambda_2,lambda,wall_colli,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD) schedule(dynamic)
         for(i=0; i<N; i++)
         {
+            threads=omp_get_num_threads();
             P_a = particles+i;
             //Case 1: collision with wall
             ///////////////
@@ -292,7 +295,7 @@ int main()
         }
         // Now let's see momentum; Potential improvements: separate diff case for diff thread
 #pragma omp parallel for shared(real_colli,colli_time,colli_queue,particles)\
-                private(colli,P_a,P_b,Dx,Dy,Delta,dx1,dy1,dx2,dy2,DDpDD)
+                private(colli,P_a,P_b,Dx,Dy,Delta,dx1,dy1,dx2,dy2,DDpDD) schedule(dynamic)
         for(i=0;i<real_colli;i++)
         {
             colli = colli_time + colli_queue[i];
@@ -380,6 +383,8 @@ int main()
         printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i,
                particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                particles[i].colli_p, particles[i].colli_w);
+
+    printf("Altogether thread number:%d\n",threads);
 
     time2=clock();
     time=(double)(time2-time1)/CLOCKS_PER_SEC;
