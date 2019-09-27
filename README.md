@@ -32,3 +32,11 @@ $\lambda^2(D_x^2+D_y^2)+2\lambda(\Delta_xD_x+\Delta_yD_y)+\Delta_x^2+\Delta_y^2-
 $\Rightarrow$
 
 $\lambda = $ blabla...
+
+
+
+For parallelism,  for the same sequential code, we can try to parallel it in different ways. 
+
+Most parts can be parallelized similarly, but we can try different ways of parallelism for the nested for-loop(i,j) in line 157 of p1.c.
+
+I have already tried parallelism for the outer loop. Basically, it makes the program around 3 times faster.  69.052283903s for seqential and 25.421331942 for p1 based on the newest inputs.txt
