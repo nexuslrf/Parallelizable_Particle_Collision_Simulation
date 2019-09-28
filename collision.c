@@ -74,17 +74,17 @@ void bound_pos(Particle *p)
 int main()
 {
     srand(0);
-    freopen("./inputs.txt","r",stdin);
+    freopen("./input_rand.txt","r",stdin);
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far;
-    double x, y, vx, vy, lambda, lambda_1, lambda_2;
+    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far, time1, time2;
+    double x, y, vx, vy, lambda, lambda_1, lambda_2, time, r_sq_4;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
+    bnd_far = L-r;
     if(!strcmp(mode,"print"))
         output = 1;
-    bnd_far = L-r;
     while(scanf("%d %lf %lf %lf %lf", &idx,&x,&y,&vx,&vy)!=EOF)
     {
         i++;
@@ -124,18 +124,12 @@ int main()
     2. Build collision time table for processing.
     🎯
     */
-    // int **colli_mat;
-    // colli_mat = (int**)malloc((N+1)*sizeof(int*));
-    // for(i=0; i<N+1; i++)
-    // {    
-    //     colli_mat[i]=(int*)malloc((N+1)*sizeof(int));
-    //     memset(colli_mat[i],0,(N+1)*sizeof(int));
-    // }
     int *colli_mat = (int *)malloc(N*sizeof(int));
     Collision *colli_time = (Collision*)malloc(N*(N+1)/2*sizeof(Collision));
     int *colli_queue = (int *)malloc(N*sizeof(int));
     // Start sim
-    double r_sq_4 = 4*r*r;
+    time1 = clock();
+    r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
     {
         // Step 1: speculate no collision happen, get new pos & v.
@@ -182,21 +176,21 @@ int main()
             if(wall_colli)
             {
                 // printf("[Debug:Colli_wall] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
-                colli_time[cnt].pa = i;
+                colli_time[cnt].pb = i;
                 lambda = lambda_1-lambda_2;
                 if(lambda==0) // Cornor collision!
                 {
-                    colli_time[cnt].pb = N; // N to present this case.
+                    colli_time[cnt].pa = 0; // N to present this case.
                     colli_time[cnt].time = lambda_1;
                 }
                 else if(lambda<0) // x wall collision!
                 {
-                    colli_time[cnt].pb = N+1; // N+1 to present this case.
+                    colli_time[cnt].pa = -1; // N+1 to present this case.
                     colli_time[cnt].time = lambda_1;
                 }
                 else if(lambda>0) // y wall collision!
                 {
-                    colli_time[cnt].pb = N+2; // N+2 to present this case.
+                    colli_time[cnt].pa = -2; // N+2 to present this case.
                     colli_time[cnt].time = lambda_2;
                 }
                 cnt++;
@@ -231,9 +225,7 @@ int main()
                 if(Delta<=0||dDpdD>0)
                     continue;
                 Delta = sqrt(Delta);
-                lambda_1 = (-dDpdD + Delta)/DDpDD;
-                lambda_2 = (-dDpdD - Delta)/DDpDD;
-                lambda = lambda_1<lambda_2?lambda_1:lambda_2;
+                lambda = (-dDpdD - Delta)/DDpDD;
                 if(lambda<1)
                 {
                     colli_time[cnt].time = lambda;
@@ -246,28 +238,50 @@ int main()
         }
         // Step 3: sort collision table and process collision
         // Sort collision
+        printf("[Debug:num]: %d\n",cnt);
         qsort(colli_time, cnt, sizeof(Collision), compare);
 
         // Filter out true collision.
         for(i=0;i<cnt;i++)
         {
             colli = colli_time+i;
-            if(!colli_mat[colli->pa])
+            /////
+            if(t == 13 && (colli->pa == 41||colli->pb==41))
             {
-                if(colli->pb>=N)
-                {
-                    colli_mat[colli->pa] = 1;
-                    colli_queue[real_colli++] = i;
-                    particles[colli->pa].colli_w++;
-                }
-                else if(!colli_mat[colli->pb])
-                {
-                    colli_mat[colli->pa] = 1;
-                    colli_mat[colli->pb] = 1;
-                    colli_queue[real_colli++] = i;
-                    particles[colli->pa].colli_p++;
-                    particles[colli->pb].colli_p++;
-                }
+                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            }
+            /////
+            // if(!colli_mat[colli->pa])
+            // {
+            //     if(colli->pb>=N)
+            //     {
+            //         colli_mat[colli->pa] = 1;
+            //         colli_queue[real_colli++] = i;
+            //         particles[colli->pa].colli_w++;
+            //     }
+            //     else if(!colli_mat[colli->pb])
+            //     {
+            //         colli_mat[colli->pa] = 1;
+            //         colli_mat[colli->pb] = 1;
+            //         colli_queue[real_colli++] = i;
+            //         particles[colli->pa].colli_p++;
+            //         particles[colli->pb].colli_p++;
+            //     }
+            // }
+            /// If colli wall has higher priority
+            if(colli->pa<=0 && !colli_mat[colli->pb])
+            {
+                colli_mat[colli->pb] = 1;
+                colli_queue[real_colli++] = i;
+                particles[colli->pa].colli_w++;
+            }
+            else if(!colli_mat[colli->pa]&&!colli_mat[colli->pb]))
+            {
+                colli_mat[colli->pa] = 1;
+                colli_mat[colli->pb] = 1;
+                colli_queue[real_colli++] = i;
+                particles[colli->pa].colli_p++;
+                particles[colli->pb].colli_p++;             
             }
         }
         // Now let's see momentum; Potential improvements: separate diff case for diff thread
@@ -275,25 +289,25 @@ int main()
         {
             colli = colli_time + colli_queue[i];
             // printf("[Debug:neg] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            if(colli->pb==N) // Cornor colli; 
+            if(colli->pa==0) // Cornor colli; 
             {
-                P_a = particles + colli->pa;
+                P_a = particles + colli->pb;
                 P_a->vx = -1*P_a->vx;
                 P_a->vy = -1*P_a->vy;
                 P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy; 
                 bound_pos(P_a);
             }
-            else if(colli->pb==N+1)//  X wall colli;
+            else if(colli->pa==-1)//  X wall colli;
             {
-                P_a = particles + colli->pa;
+                P_a = particles + colli->pb;
                 P_a->vx = -1*P_a->vx;
                 P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
                 bound_pos(P_a);
             }
-            else if(colli->pb==N+2)// Y wall colli;
+            else if(colli->pa==-2)// Y wall colli;
             {
-                P_a = particles + colli->pa;
+                P_a = particles + colli->pb;
                 P_a->vy = -1*P_a->vy;
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy;
                 // printf("[Debug:Y wall Colli] Pa: %10.8f %10.8f\n", P_a->x_n,P_a->y_n);
@@ -357,6 +371,10 @@ int main()
         printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i, 
                 particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                 particles[i].colli_p, particles[i].colli_w);
+                
+    time2=clock();
+    time=(double)(time2-time1)/CLOCKS_PER_SEC;
+    printf("Time consumed: %10.8lf\n",time);
     
     fclose(stdin);
     free(particles);

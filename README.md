@@ -46,3 +46,21 @@ For p1d.c, I change the schedule in two of the parallelism into dynamic(line 160
 But the same improvement does not work for the inner loop. It turns the performance into 90s.
 
 Overall, the best one is p2.c (inner j loop with static schedule).
+
+### Issues:
+
+1. 初始化的时候，不用做并行啦，这个不是关注点
+
+2. clock() 的位置，从step0 开始，init不考虑了
+
+## Algorithm Improvements:
+
+benchmark: 
+
+```
+4000 200 1 100 perf
+```
+
+| Naive ver. | Relative |
+| ---------- | -------- |
+| 3.65       | 3.30     |
