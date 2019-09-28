@@ -64,3 +64,21 @@ benchmark:
 | Naive ver. | Relative |
 | ---------- | -------- |
 | 3.65       | 3.30     |
+
+## Grid
+
+每个点的轨迹 -> bounding box 
+
+不断细化：
+    1. 完全在block中的particle
+    2. 部分在block中的particle
+只与同级或次级的block比较
+
+Idea：
+
+-----------------------
+
+## Update:
+
+1. line155-175: 减法顺序有问题，已修改
+2. line203-236: 参考[blog](https://www.gamasutra.com/view/feature/131424/pool_hall_lessons_fast_accurate_.php?page=2), 改进碰撞检测

@@ -81,8 +81,7 @@ int main()
     Collision *colli;
     int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far, time1, time2;
     double x, y, vx, vy, lambda, lambda_1, lambda_2, time, r_sq_4;
-    double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
-    double Ds, Dt;
+    double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, Delta, Ds, Dt;
     bnd_far = L-r;
     if(!strcmp(mode,"print"))
         output = 1;
@@ -154,23 +153,23 @@ int main()
             // printf("[Debug:before_colli] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
             if(P_a->x_n<r)
             {
-                lambda_1 = (P_a->x - r) / P_a->vx;
+                lambda_1 = (r - P_a->x) / P_a->vx;
                 wall_colli = 1;
             }
             else if(P_a->x_n>bnd_far)
             {
-                lambda_1 = (P_a->x - bnd_far) / P_a->vx;
+                lambda_1 = (bnd_far - P_a->x) / P_a->vx;
                 wall_colli = 1;
             }
 
             if(P_a->y_n<r)
             {
-                lambda_2 = (P_a->y - r) / P_a->vy;
+                lambda_2 = (r - P_a->y) / P_a->vy;
                 wall_colli = 1;
             }
             else if(P_a->y_n>bnd_far)
             {
-                lambda_2 = (P_a->y - bnd_far) / P_a->vy;
+                lambda_2 = (bnd_far - P_a->y) / P_a->vy;
                 wall_colli = 1;
             }
 
@@ -204,6 +203,11 @@ int main()
                 ////////////////
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
+                dx2 = P_a->vx - P_b->vx;
+                dy2 = P_a->vy - P_b->vy;
+                Dt = dx2*dx1 + dy2*dy1;
+                if(Dt<=0)
+                    continue;
                 if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
                 {
                     colli_time[cnt].time = 0;
@@ -213,37 +217,8 @@ int main()
                     break; // no need to further detect.
                 }
                 ////////////////
-                // Case 3: Normal collision case
-                ////////////////
-                // dx2 = P_b->x_n - P_a->x_n;
-                // dy2 = P_b->y_n - P_a->y_n;
-                // Dx = dx2 - dx1;
-                // Dy = dy2 - dy1;
-                // DDpDD = Dx*Dx + Dy*Dy;
-                // dDmdD = dx1*Dy - dy1*Dx;
-                // Delta = r_sq_4*DDpDD - dDmdD*dDmdD;
-                // dDpdD = dx1*Dx + dy1*Dy;
-                // if(Delta<=0||dDpdD>0)
-                //     continue;
-                // Delta = sqrt(Delta);
-                // // lambda_1 = (-dDpdD + Delta)/DDpDD;
-                // lambda = (-dDpdD - Delta)/DDpDD;
-                // // lambda = lambda_1<lambda_2?lambda_1:lambda_2;
-                // if(lambda<1)
-                // {
-                //     colli_time[cnt].time = lambda;
-                //     colli_time[cnt].pa = i;
-                //     colli_time[cnt].pb = j;
-                //     cnt++;
-                // }
-                ////////////////
                 // Case 3: Normal collision with relativity
                 ////////////////
-                dx2 = P_a->vx - P_b->vx;
-                dy2 = P_a->vy - P_b->vy;
-                Dt = dx2*dx1 + dy2*dy1;
-                if(Dt<=0)
-                    continue;
                 Dx = dx2*dx2;
                 Dy = dy2*dy2;
                 DDpDD = Dx + Dy;
@@ -258,14 +233,6 @@ int main()
                     colli_time[cnt].pa = i;
                     colli_time[cnt].pb = j;
                     cnt++;
-                    // if((int)(lambda*1000000)!=(int)(lambda_1*1000000))
-                    // {
-                    // printf("[Debug:relativity] v1: %d v2: %d\n", (int)(lambda*1000000),(int)(lambda_1*1000000));
-                    // printf("[Debug:relativity] P_a: %d %d %10.8lf %10.8lf %10.8lf %10.8lf\n",t, i, 
-                    //                                         P_a->x, P_a->y, P_a->vx, P_a->vy);
-                    // printf("[Debug:relativity] P_b: %d %d %10.8lf %10.8lf %10.8lf %10.8lf\n",t, i, 
-                    //                                         P_b->x, P_b->y, P_b->vx, P_b->vy);
-                    // }
                 }
             }
         }
@@ -279,7 +246,7 @@ int main()
         {
             colli = colli_time+i;
             /////
-            if(t == 13 && (colli->pa == 41||colli->pb==41))
+            if(t == 8 && (colli->pa == 49||colli->pb==49))
             {
                 printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
             }
