@@ -286,14 +286,17 @@ int main()
             {
                 for(k=0;k<grid_cnt[j];k++)
                 {
-                    P_a = particles+k;
+                    a = grid_node[j][k];
+                    P_a = particles+a;
                     for(w=j;w>=0;w=(w-1)/4)
                     {
                         // printf("j: %d w: %d\n",j,w);
                         q= w==j?k+1:0;
                         for(;q<grid_cnt[w];q++)
                         {
-                            P_b = particles+q;
+                            b = grid_node[w][q];
+                            P_b = particles+b;
+                            // printf("k: %d q: %d\n",a,b);
                             dx1 = P_b->x - P_a->x;
                             dy1 = P_b->y - P_a->y;
                             Dx = P_b->vx - P_a->vx;
@@ -301,23 +304,24 @@ int main()
                             dDpdD = dx1*Dx + dy1*Dy;
                             if(dDpdD>=0) // To judge the right direction
                                 continue;
-                            if(k<q)
-                            {
-                                a=k; b=q;
-                            }
-                            else
-                            {
-                                a=q; b=k;
-                            }
+                            
                             // Case 2: overlap at startup
                             ////////////////
                             if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
                             {
                                 colli_time[cnt].time = 0;
-                                colli_time[cnt].pa = a;
-                                colli_time[cnt].pb = b; // pa always smaller than pb
+                                if(a<b)
+                                {
+                                    colli_time[cnt].pa = a;
+                                    colli_time[cnt].pb = b; // pa always smaller than pb
+                                }
+                                else
+                                {
+                                    colli_time[cnt].pa = b;
+                                    colli_time[cnt].pb = a; // pa always smaller than pb
+                                }
                                 cnt++;
-                                break; // no need to further detect.
+                                continue; // no need to further detect.
                             }
                             ////////////////
                             // Case 3: Normal collision case
@@ -333,8 +337,16 @@ int main()
                             if(lambda<1)
                             {
                                 colli_time[cnt].time = lambda;
-                                colli_time[cnt].pa = a;
-                                colli_time[cnt].pb = b;
+                                if(a<b)
+                                {
+                                    colli_time[cnt].pa = a;
+                                    colli_time[cnt].pb = b; // pa always smaller than pb
+                                }
+                                else
+                                {
+                                    colli_time[cnt].pa = b;
+                                    colli_time[cnt].pb = a; // pa always smaller than pb
+                                }
                                 cnt++;
                             }
                         }
@@ -357,10 +369,10 @@ int main()
         {
             colli = colli_time+i;
             /////
-            if(t == 0 && (colli->pa == 1||colli->pb==1))
-            {
-                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            }
+            // if(t == 0 && (colli->pa == 1||colli->pb==1))
+            // {
+            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            // }
             /////
             if(!colli_mat[colli->pa])
             {
