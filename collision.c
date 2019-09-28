@@ -176,22 +176,22 @@ int main()
             if(wall_colli)
             {
                 // printf("[Debug:Colli_wall] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
-                colli_time[cnt].pb = i;
+                colli_time[cnt].pa = i;
                 lambda = lambda_1-lambda_2;
                 if(lambda==0) // Cornor collision!
                 {
-                    colli_time[cnt].pa = 0; // N to present this case.
-                    colli_time[cnt].time = lambda_1;
+                    colli_time[cnt].pb = N; // N to present this case.
+                    colli_time[cnt].time = lambda_1>0?lambda_1:0;
                 }
                 else if(lambda<0) // x wall collision!
                 {
-                    colli_time[cnt].pa = -1; // N+1 to present this case.
-                    colli_time[cnt].time = lambda_1;
+                    colli_time[cnt].pb = N+1; // N+1 to present this case.
+                    colli_time[cnt].time = lambda_1>0?lambda_1:0;
                 }
                 else if(lambda>0) // y wall collision!
                 {
-                    colli_time[cnt].pa = -2; // N+2 to present this case.
-                    colli_time[cnt].time = lambda_2;
+                    colli_time[cnt].pb = N+2; // N+2 to present this case.
+                    colli_time[cnt].time = lambda_2>0?lambda_2:0;
                 }
                 cnt++;
             }
@@ -199,10 +199,15 @@ int main()
             for(j=i+1; j<N; j++)
             {
                 P_b = particles+j;
-                // Case 2: overlap at startup
-                ////////////////
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
+                Dx = P_b->vx - P_a->vx;
+                Dy = P_b->vy - P_a->vy;
+                dDpdD = dx1*Dx + dy1*Dy;
+                if(dDpdD>=0) // To judge the right direction
+                    continue;
+                // Case 2: overlap at startup
+                ////////////////
                 if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
                 {
                     colli_time[cnt].time = 0;
@@ -214,18 +219,14 @@ int main()
                 ////////////////
                 // Case 3: Normal collision case
                 ////////////////
-                dx2 = P_b->x_n - P_a->x_n;
-                dy2 = P_b->y_n - P_a->y_n;
-                Dx = dx2 - dx1;
-                Dy = dy2 - dy1;
                 DDpDD = Dx*Dx + Dy*Dy;
                 dDmdD = dx1*Dy - dy1*Dx;
                 Delta = r_sq_4*DDpDD - dDmdD*dDmdD;
-                dDpdD = dx1*Dx + dy1*Dy;
-                if(Delta<=0||dDpdD>0)
+                if(Delta<=0)
                     continue;
                 Delta = sqrt(Delta);
                 lambda = (-dDpdD - Delta)/DDpDD;
+                // printf("[Debug:lambda]: %f\n", lambda);
                 if(lambda<1)
                 {
                     colli_time[cnt].time = lambda;
@@ -246,42 +247,27 @@ int main()
         {
             colli = colli_time+i;
             /////
-            if(t == 13 && (colli->pa == 41||colli->pb==41))
+            if(t == 8 && (colli->pa == 49||colli->pb==49))
             {
                 printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
             }
             /////
-            // if(!colli_mat[colli->pa])
-            // {
-            //     if(colli->pb>=N)
-            //     {
-            //         colli_mat[colli->pa] = 1;
-            //         colli_queue[real_colli++] = i;
-            //         particles[colli->pa].colli_w++;
-            //     }
-            //     else if(!colli_mat[colli->pb])
-            //     {
-            //         colli_mat[colli->pa] = 1;
-            //         colli_mat[colli->pb] = 1;
-            //         colli_queue[real_colli++] = i;
-            //         particles[colli->pa].colli_p++;
-            //         particles[colli->pb].colli_p++;
-            //     }
-            // }
-            /// If colli wall has higher priority
-            if(colli->pa<=0 && !colli_mat[colli->pb])
+            if(!colli_mat[colli->pa])
             {
-                colli_mat[colli->pb] = 1;
-                colli_queue[real_colli++] = i;
-                particles[colli->pa].colli_w++;
-            }
-            else if(!colli_mat[colli->pa]&&!colli_mat[colli->pb]))
-            {
-                colli_mat[colli->pa] = 1;
-                colli_mat[colli->pb] = 1;
-                colli_queue[real_colli++] = i;
-                particles[colli->pa].colli_p++;
-                particles[colli->pb].colli_p++;             
+                if(colli->pb>=N)
+                {
+                    colli_mat[colli->pa] = 1;
+                    colli_queue[real_colli++] = i;
+                    particles[colli->pa].colli_w++;
+                }
+                else if(!colli_mat[colli->pb])
+                {
+                    colli_mat[colli->pa] = 1;
+                    colli_mat[colli->pb] = 1;
+                    colli_queue[real_colli++] = i;
+                    particles[colli->pa].colli_p++;
+                    particles[colli->pb].colli_p++;
+                }
             }
         }
         // Now let's see momentum; Potential improvements: separate diff case for diff thread
@@ -289,25 +275,25 @@ int main()
         {
             colli = colli_time + colli_queue[i];
             // printf("[Debug:neg] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            if(colli->pa==0) // Cornor colli; 
+            if(colli->pb==N) // Cornor colli; 
             {
-                P_a = particles + colli->pb;
+                P_a = particles + colli->pa;
                 P_a->vx = -1*P_a->vx;
                 P_a->vy = -1*P_a->vy;
                 P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy; 
                 bound_pos(P_a);
             }
-            else if(colli->pa==-1)//  X wall colli;
+            else if(colli->pb==N+1)//  X wall colli;
             {
-                P_a = particles + colli->pb;
+                P_a = particles + colli->pa;
                 P_a->vx = -1*P_a->vx;
                 P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
                 bound_pos(P_a);
             }
-            else if(colli->pa==-2)// Y wall colli;
+            else if(colli->pb==N+2)// Y wall colli;
             {
-                P_a = particles + colli->pb;
+                P_a = particles + colli->pa;
                 P_a->vy = -1*P_a->vy;
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy;
                 // printf("[Debug:Y wall Colli] Pa: %10.8f %10.8f\n", P_a->x_n,P_a->y_n);
