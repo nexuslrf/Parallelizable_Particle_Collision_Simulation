@@ -190,6 +190,7 @@ int main()
         grid_node[i] = (int*)malloc(N*sizeof(int));
     }
     grid_cnt = (int*)malloc(N*sizeof(int));
+    memset(grid_cnt,0, N*sizeof(int));
     // Start sim
     time1 = clock();
     r_sq_4 = 4*r*r;
@@ -280,88 +281,90 @@ int main()
         // printf("Pass!\n");
         // Step 2: find all possible collision independently. fill colli_mat and colli_time.
         offset = 21;
-        for(i=16; i; i/=4)
+        // for(i=16; i; i/=4)
+        // {
+            // for(j=offset-i; j<offset; j++)
+        for(j=0;j<21;j++)
         {
-            for(j=offset-i; j<offset; j++)
+            for(k=0;k<grid_cnt[j];k++)
             {
-                for(k=0;k<grid_cnt[j];k++)
+                a = grid_node[j][k];
+                P_a = particles+a;
+                for(w=j;w>=0;w=(w-1)/4)
                 {
-                    a = grid_node[j][k];
-                    P_a = particles+a;
-                    for(w=j;w>=0;w=(w-1)/4)
+                    // printf("j: %d w: %d\n",j,w);
+                    q= w==j?k+1:0;
+                    for(;q<grid_cnt[w];q++)
                     {
-                        // printf("j: %d w: %d\n",j,w);
-                        q= w==j?k+1:0;
-                        for(;q<grid_cnt[w];q++)
+                        b = grid_node[w][q];
+                        // printf("a: %d b: %d\n",a,b);
+                        P_b = particles+b;
+                        // printf("k: %d q: %d\n",a,b);
+                        dx1 = P_b->x - P_a->x;
+                        dy1 = P_b->y - P_a->y;
+                        Dx = P_b->vx - P_a->vx;
+                        Dy = P_b->vy - P_a->vy;
+                        dDpdD = dx1*Dx + dy1*Dy;
+                        if(dDpdD>=0) // To judge the right direction
+                            continue;
+                        
+                        // Case 2: overlap at startup
+                        ////////////////
+                        if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
                         {
-                            b = grid_node[w][q];
-                            P_b = particles+b;
-                            // printf("k: %d q: %d\n",a,b);
-                            dx1 = P_b->x - P_a->x;
-                            dy1 = P_b->y - P_a->y;
-                            Dx = P_b->vx - P_a->vx;
-                            Dy = P_b->vy - P_a->vy;
-                            dDpdD = dx1*Dx + dy1*Dy;
-                            if(dDpdD>=0) // To judge the right direction
-                                continue;
-                            
-                            // Case 2: overlap at startup
-                            ////////////////
-                            if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
-                            {
-                                colli_time[cnt].time = 0;
-                                if(a<b)
-                                {
-                                    colli_time[cnt].pa = a;
-                                    colli_time[cnt].pb = b; // pa always smaller than pb
-                                }
-                                else
-                                {
-                                    colli_time[cnt].pa = b;
-                                    colli_time[cnt].pb = a; // pa always smaller than pb
-                                }
-                                cnt++;
-                                continue; // no need to further detect.
-                            }
-                            ////////////////
-                            // Case 3: Normal collision case
-                            ////////////////
-                            DDpDD = Dx*Dx + Dy*Dy;
-                            dDmdD = dx1*Dy - dy1*Dx;
-                            Delta = r_sq_4*DDpDD - dDmdD*dDmdD;
-                            if(Delta<=0)
-                                continue;
-                            Delta = sqrt(Delta);
-                            lambda = (-dDpdD - Delta)/DDpDD;
-                            // printf("[Debug:lambda]: %f\n", lambda);
-                            if(lambda<1)
-                            {
-                                colli_time[cnt].time = lambda;
-                                if(a<b)
-                                {
-                                    colli_time[cnt].pa = a;
-                                    colli_time[cnt].pb = b; // pa always smaller than pb
-                                }
-                                else
-                                {
-                                    colli_time[cnt].pa = b;
-                                    colli_time[cnt].pb = a; // pa always smaller than pb
-                                }
-                                cnt++;
-                            }
+                            // colli_time[cnt].time = 0;
+                            // if(a<b)
+                            // {
+                            //     colli_time[cnt].pa = a;
+                            //     colli_time[cnt].pb = b; // pa always smaller than pb
+                            // }
+                            // else
+                            // {
+                            //     colli_time[cnt].pa = b;
+                            //     colli_time[cnt].pb = a; // pa always smaller than pb
+                            // }
+                            // cnt++;
+                            continue; // no need to further detect.
                         }
-                        if(!w)
-                            break;
+                        ////////////////
+                        // Case 3: Normal collision case
+                        ////////////////
+                        DDpDD = Dx*Dx + Dy*Dy;
+                        dDmdD = dx1*Dy - dy1*Dx;
+                        Delta = r_sq_4*DDpDD - dDmdD*dDmdD;
+                        if(Delta<=0)
+                            continue;
+                        Delta = sqrt(Delta);
+                        lambda = (-dDpdD - Delta)/DDpDD;
+                        // printf("[Debug:lambda]: %f\n", lambda);
+                        if(lambda<1)
+                        {
+                            colli_time[cnt].time = lambda;
+                            if(a<b)
+                            {
+                                colli_time[cnt].pa = a;
+                                colli_time[cnt].pb = b; // pa always smaller than pb
+                            }
+                            else
+                            {
+                                colli_time[cnt].pa = b;
+                                colli_time[cnt].pb = a; // pa always smaller than pb
+                            }
+                            cnt++;
+                        }
                     }
+                    if(!w)
+                        break;
                 }
-                grid_cnt[j] = 0;
             }
-            offset-=i;
+            // grid_cnt[j] = 0;
         }
-
+        //     offset-=i;
+        // }
+        memset(grid_cnt,0, N*sizeof(int));
         // Step 3: sort collision table and process collision
         // Sort collision
-        printf("[Debug:num]: %d\n",cnt);
+        // printf("[Debug:num]: %d\n",cnt);
         qsort(colli_time, cnt, sizeof(Collision), compare);
 
         // Filter out true collision.
@@ -369,10 +372,10 @@ int main()
         {
             colli = colli_time+i;
             /////
-            // if(t == 0 && (colli->pa == 1||colli->pb==1))
-            // {
-            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            // }
+            if(t == 0 && (colli->pa == 5||colli->pb==5))
+            {
+                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            }
             /////
             if(!colli_mat[colli->pa])
             {

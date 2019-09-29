@@ -211,11 +211,12 @@ int main()
                 ////////////////
                 if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
                 {
-                    colli_time[cnt].time = 0;
-                    colli_time[cnt].pa = i;
-                    colli_time[cnt].pb = j; // pa always smaller than pb
-                    cnt++;
-                    break; // no need to further detect.
+                    // colli_time[cnt].time = 0;
+                    // colli_time[cnt].pa = i;
+                    // colli_time[cnt].pb = j; // pa always smaller than pb
+                    // cnt++;
+                    // break; // no need to further detect.
+                    continue;
                 }
                 ////////////////
                 // Case 3: Normal collision case
