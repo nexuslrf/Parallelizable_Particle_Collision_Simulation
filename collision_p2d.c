@@ -9,6 +9,7 @@
 #include <math.h>
 
 #define RAND01 (rand()%2)
+#define T_NUM 4
 
 typedef struct
 {
@@ -80,7 +81,7 @@ int main()
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far, time1, time2;
+    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far, time1, time2,threads;
     double x, y, vx, vy, lambda, lambda_1, lambda_2, time, r_sq_4;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     bnd_far = L-r;
@@ -147,10 +148,10 @@ int main()
         real_colli = 0;
         memset(colli_mat,0, N*sizeof(int));
         //start parallelism
-#pragma omp parallel for shared(cnt,colli_time,particles) private(j,dx1,dy1,P_a,P_b,lambda_1,\
-                lambda_2,lambda,wall_colli,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD)
+
         for(i=0; i<N; i++)
         {
+            threads=omp_get_num_threads();
             P_a = particles+i;
             //Case 1: collision with wall
             ///////////////
@@ -182,11 +183,7 @@ int main()
             if(wall_colli)
             {
                 // printf("[Debug:Colli_wall] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
-                int count;
-#pragma omp critical
-                {
-                    count=cnt++;
-                }
+                int count=cnt++;
                 colli_time[count].pa = i;
                 lambda = lambda_1-lambda_2;
                 if(lambda==0) // Cornor collision!
@@ -206,6 +203,8 @@ int main()
                 }
             }
             ///////////////
+#pragma omp parallel for shared(cnt,colli_time,particles,P_a) private(dx1,dy1,P_b,lambda_1,\
+                lambda_2,lambda,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD) schedule(dynamic)
             for(j=i+1; j<N; j++)
             {
                 P_b = particles+j;
@@ -363,6 +362,7 @@ int main()
                particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                particles[i].colli_p, particles[i].colli_w);
 
+    printf("Thread number:%d\n",threads);
     time2=clock();
     time=(double)(time2-time1)/CLOCKS_PER_SEC;
     //printf("Time consumed: %10.8lf\n",time);

@@ -9,6 +9,7 @@
 #include <math.h>
 
 #define RAND01 (rand()%2)
+#define T_NUM 4
 
 typedef struct
 {
@@ -73,21 +74,19 @@ void bound_pos(Particle *p)
 
 int main()
 {
-    srand(0);
+    srand((unsigned)time(NULL));
     freopen("./inputs.txt","r",stdin);
     freopen("./outputs.txt","w",stdout);
-
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far,time1,time2;
-    double x, y, vx, vy, lambda, lambda_1, lambda_2,time;
+    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far, time1, time2,threads;
+    double x, y, vx, vy, lambda, lambda_1, lambda_2, time, r_sq_4;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
-    time1=clock();
+    bnd_far = L-r;
     if(!strcmp(mode,"print"))
         output = 1;
-    bnd_far = L-r;
     while(scanf("%d %lf %lf %lf %lf", &idx,&x,&y,&vx,&vy)!=EOF)
     {
         i++;
@@ -128,18 +127,12 @@ int main()
     2. Build collision time table for processing.
     🎯
     */
-    // int **colli_mat;
-    // colli_mat = (int**)malloc((N+1)*sizeof(int*));
-    // for(i=0; i<N+1; i++)
-    // {
-    //     colli_mat[i]=(int*)malloc((N+1)*sizeof(int));
-    //     memset(colli_mat[i],0,(N+1)*sizeof(int));
-    // }
     int *colli_mat = (int *)malloc(N*sizeof(int));
     Collision *colli_time = (Collision*)malloc(N*(N+1)/2*sizeof(Collision));
     int *colli_queue = (int *)malloc(N*sizeof(int));
     // Start sim
-    double r_sq_4 = 4*r*r;
+    time1 = clock();
+    r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
     {
         // Step 1: speculate no collision happen, get new pos & v.
@@ -158,6 +151,7 @@ int main()
 
         for(i=0; i<N; i++)
         {
+            threads=omp_get_num_threads();
             P_a = particles+i;
             //Case 1: collision with wall
             ///////////////
@@ -166,23 +160,23 @@ int main()
             // printf("[Debug:before_colli] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
             if(P_a->x_n<r)
             {
-                lambda_1 = (P_a->x - r) / P_a->vx;
+                lambda_1 = (r - P_a->x) / P_a->vx;
                 wall_colli = 1;
             }
             else if(P_a->x_n>bnd_far)
             {
-                lambda_1 = (P_a->x - bnd_far) / P_a->vx;
+                lambda_1 = (bnd_far - P_a->x) / P_a->vx;
                 wall_colli = 1;
             }
 
             if(P_a->y_n<r)
             {
-                lambda_2 = (P_a->y - r) / P_a->vy;
+                lambda_2 = (r - P_a->y) / P_a->vy;
                 wall_colli = 1;
             }
             else if(P_a->y_n>bnd_far)
             {
-                lambda_2 = (P_a->y - bnd_far) / P_a->vy;
+                lambda_2 = (bnd_far - P_a->y) / P_a->vy;
                 wall_colli = 1;
             }
 
@@ -209,47 +203,34 @@ int main()
                 }
             }
             ///////////////
-            int flag=0;
 #pragma omp parallel for shared(cnt,colli_time,particles,P_a) private(dx1,dy1,P_b,lambda_1,\
                 lambda_2,lambda,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD)
             for(j=i+1; j<N; j++)
             {
-                if(flag) continue;
                 P_b = particles+j;
-                // Case 2: overlap at startup
-                ////////////////
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
+                // Case 2: overlap at startup, not counting it as collision
+                ////////////////
                 if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
-                {
-                    int count;
-#pragma omp critical
-                    {
-                        count=cnt++;
-                    }
-                    colli_time[count].time = 0;
-                    colli_time[count].pa = i;
-                    colli_time[count].pb = j; // pa always smaller than pb
-                    flag=1; // no need to further detect.
                     continue;
-                }
+                //early detection
+                Dx = P_b->vx - P_a->vx;
+                Dy = P_b->vy - P_a->vy;
+                dDpdD = dx1*Dx + dy1*Dy;
+                if(dDpdD>=0) // To judge the right direction
+                    continue;
                 ////////////////
                 // Case 3: Normal collision case
                 ////////////////
-                dx2 = P_b->x_n - P_a->x_n;
-                dy2 = P_b->y_n - P_a->y_n;
-                Dx = dx2 - dx1;
-                Dy = dy2 - dy1;
                 DDpDD = Dx*Dx + Dy*Dy;
                 dDmdD = dx1*Dy - dy1*Dx;
                 Delta = r_sq_4*DDpDD - dDmdD*dDmdD;
-                dDpdD = dx1*Dx + dy1*Dy;
-                if(Delta<=0||dDpdD>0)
+                if(Delta<=0)
                     continue;
                 Delta = sqrt(Delta);
-                lambda_1 = (-dDpdD + Delta)/DDpDD;
-                lambda_2 = (-dDpdD - Delta)/DDpDD;
-                lambda = lambda_1<lambda_2?lambda_1:lambda_2;
+                lambda = (-dDpdD - Delta)/DDpDD;
+                // printf("[Debug:lambda]: %f\n", lambda);
                 if(lambda<1)
                 {
                     int count;
@@ -381,9 +362,10 @@ int main()
                particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                particles[i].colli_p, particles[i].colli_w);
 
+    printf("Thread number:%d\n",threads);
     time2=clock();
     time=(double)(time2-time1)/CLOCKS_PER_SEC;
-    printf("Time consumed: %10.8lf\n",time);
+    //printf("Time consumed: %10.8lf\n",time);
     fclose(stdin);
     fclose(stdout);
     free(particles);
