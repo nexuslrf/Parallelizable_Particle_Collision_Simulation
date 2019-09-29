@@ -73,8 +73,9 @@ void bound_pos(Particle *p)
 
 int main()
 {
-    srand(0);
-    freopen("./input_rand.txt","r",stdin);
+    srand((unsigned)time(NULL));
+    freopen("./inputs.txt","r",stdin);
+    freopen("./outputs.txt","w",stdout);
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
@@ -125,7 +126,6 @@ int main()
     🎯
     */
     int *colli_mat = (int *)malloc(N*sizeof(int));
-    memset(colli_mat,0, N*sizeof(int));
     Collision *colli_time = (Collision*)malloc(N*(N+1)/2*sizeof(Collision));
     int *colli_queue = (int *)malloc(N*sizeof(int));
     // Start sim
@@ -143,7 +143,7 @@ int main()
         // Step 2: find all possible collision independently. fill colli_mat and colli_time.
         cnt = 0;
         real_colli = 0;
-        
+        memset(colli_mat,0, N*sizeof(int));
         for(i=0; i<N; i++)
         {
             P_a = particles+i;
@@ -202,21 +202,16 @@ int main()
                 P_b = particles+j;
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
+                // Case 2: overlap at startup, not counting it as collision
+                ////////////////
+                if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
+                    continue;
+                //early detection
                 Dx = P_b->vx - P_a->vx;
                 Dy = P_b->vy - P_a->vy;
                 dDpdD = dx1*Dx + dy1*Dy;
                 if(dDpdD>=0) // To judge the right direction
                     continue;
-                // Case 2: overlap at startup
-                ////////////////
-                if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
-                {
-                    colli_time[cnt].time = 0;
-                    colli_time[cnt].pa = i;
-                    colli_time[cnt].pb = j; // pa always smaller than pb
-                    cnt++;
-                    break; // no need to further detect.
-                }
                 ////////////////
                 // Case 3: Normal collision case
                 ////////////////
@@ -345,7 +340,6 @@ int main()
             P_a = particles+i;
             P_a->x = P_a->x_n;
             P_a->y = P_a->y_n;
-            colli_mat[i] = 0;
         }
         // To Output Result:
         if(output)
@@ -359,12 +353,13 @@ int main()
         printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i, 
                 particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                 particles[i].colli_p, particles[i].colli_w);
-                
+
     time2=clock();
     time=(double)(time2-time1)/CLOCKS_PER_SEC;
-    printf("Time consumed: %10.8lf\n",time);
+    //printf("Time consumed: %10.8lf\n",time);
     
     fclose(stdin);
+    fclose(stdout);
     free(particles);
     free(colli_time);
     free(colli_mat);
