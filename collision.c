@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <omp.h>
+// #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -240,7 +240,7 @@ int main()
         }
         // Step 3: sort collision table and process collision
         // Sort collision
-        printf("[Debug:num]: %d\n",cnt);
+        // printf("[Debug:num]: %d\n",cnt);
         qsort(colli_time, cnt, sizeof(Collision), compare);
 
         // Filter out true collision.
