@@ -6,7 +6,12 @@ from matplotlib.patches import Ellipse, Circle
 r = 1
 l = 10
 num_p = 20
-params = open('input_rand.txt').readline().split
+params = [eval(i) for i in open('input_rand.txt').readline().split()]
+num_p = params[0]
+l = params[1]
+r = params[2]
+steps = params[3]
+
 h = 3
 w = 3
 particles = np.array([
