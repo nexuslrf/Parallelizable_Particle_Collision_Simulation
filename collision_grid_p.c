@@ -9,6 +9,7 @@
 #include <math.h>
 
 #define RAND01 (rand()%2)
+#define T_NUM 4
 
 typedef struct
 {
@@ -122,14 +123,16 @@ void insert(Particle *p, int pid, int node, int sect, int lv, double offset_x, d
 
 int main()
 {
-    srand(0);
-    freopen("./input_rand.txt","r",stdin);
+    srand((unsigned)time(NULL));
+    //omp_set_num_threads(T_NUM);
+    freopen("./inputs.txt","r",stdin);
+    freopen("./outputs.txt","w",stdout);
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
     int i =0,j, w, k,q, t,a,b,offset, idx, cnt, 
-            real_colli, wall_colli, output=0, bnd_far, time1, time2;
+            real_colli, wall_colli, output=0, bnd_far, time1, time2, threads;
     double x, y, vx, vy, lambda, lambda_1, lambda_2, time, r_sq_4;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     bnd_far = L-r;
@@ -199,6 +202,8 @@ int main()
         cnt = 0;
         real_colli = 0;
         // Step 1: speculate no collision happen, get new pos & v.
+#pragma omp parallel for shared(cnt,colli_time,particles,grid_node,grid_cnt) private(P_a,lambda_1,\
+                lambda_2,lambda,wall_colli) //schedule(dynamic)
         for(i=0; i<N; i++)
         {
             P_a = particles+i;
@@ -233,27 +238,31 @@ int main()
             // printf("[Debug:lambda] %10.8f %10.8f\n",lambda_1, lambda_2);
             if(wall_colli)
             {
+                int count;
+#pragma omp critical
+                {
+                    count=cnt++;
+                }
                 // printf("[Debug:Colli_wall] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
-                colli_time[cnt].pa = i;
+                colli_time[count].pa = i;
                 lambda = lambda_1-lambda_2;
                 if(lambda==0) // Cornor collision!
                 {
-                    colli_time[cnt].pb = N; // N to present this case.
-                    colli_time[cnt].time = lambda_1;
+                    colli_time[count].pb = N; // N to present this case.
+                    colli_time[count].time = lambda_1;
                 }
                 else if(lambda<0) // x wall collision!
                 {
-                    colli_time[cnt].pb = N+1; // N+1 to present this case.
-                    colli_time[cnt].time = lambda_1;
+                    colli_time[count].pb = N+1; // N+1 to present this case.
+                    colli_time[count].time = lambda_1;
                 }
                 else if(lambda>0) // y wall collision!
                 {
-                    colli_time[cnt].pb = N+2; // N+2 to present this case.
-                    colli_time[cnt].time = lambda_2;
+                    colli_time[count].pb = N+2; // N+2 to present this case.
+                    colli_time[count].time = lambda_2;
                 }
-                P_a->x_n = P_a->x + colli_time[cnt].time * P_a->vx;
-                P_a->y_n = P_a->y + colli_time[cnt].time * P_a->vy;
-                cnt++;
+                P_a->x_n = P_a->x + colli_time[count].time * P_a->vx;
+                P_a->y_n = P_a->y + colli_time[count].time * P_a->vy;
             }
             // Get bnd
             if(P_a->x_n > P_a->x)
@@ -284,8 +293,11 @@ int main()
         // for(i=16; i; i/=4)
         // {
             // for(j=offset-i; j<offset; j++)
+#pragma omp parallel for shared(cnt,colli_time,particles,grid_node,grid_cnt) private(k,a,b,q,w,k,dx1,dy1,P_a,P_b,\
+        lambda,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD) schedule(dynamic)
         for(j=0;j<21;j++)
         {
+            threads=omp_get_num_threads();
             for(k=0;k<grid_cnt[j];k++)
             {
                 a = grid_node[j][k];
@@ -339,22 +351,26 @@ int main()
                         // printf("[Debug:lambda]: %f\n", lambda);
                         if(lambda<1)
                         {
-                            colli_time[cnt].time = lambda;
+                            int count;
+                            #pragma omp critical
+                            {
+                                count=cnt++;
+                            }
+                            colli_time[count].time = lambda;
                             if(a<b)
                             {
-                                colli_time[cnt].pa = a;
-                                colli_time[cnt].pb = b; // pa always smaller than pb
+                                colli_time[count].pa = a;
+                                colli_time[count].pb = b; // pa always smaller than pb
                             }
                             else
                             {
-                                colli_time[cnt].pa = b;
-                                colli_time[cnt].pb = a; // pa always smaller than pb
+                                colli_time[count].pa = b;
+                                colli_time[count].pb = a; // pa always smaller than pb
                             }
-                            cnt++;
                         }
                     }
                     if(!w)
-                        break;
+                        w=-1;
                 }
             }
             // grid_cnt[j] = 0;
@@ -372,10 +388,10 @@ int main()
         {
             colli = colli_time+i;
             /////
-            // if(t == 0 && (colli->pa == 5||colli->pb==5))
-            // {
-            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            // }
+            if(t == 0 && (colli->pa == 5||colli->pb==5))
+            {
+                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            }
             /////
             if(!colli_mat[colli->pa])
             {
@@ -396,6 +412,8 @@ int main()
             }
         }
         // Now let's see momentum; Potential improvements: separate diff case for diff thread
+#pragma omp parallel for shared(real_colli,colli_time,colli_queue,particles)\
+        private(colli,P_a,P_b,Dx,Dy,Delta,dx1,dy1,dx2,dy2,DDpDD) schedule(dynamic)
         for(i=0;i<real_colli;i++)
         {
             colli = colli_time + colli_queue[i];
@@ -466,6 +484,7 @@ int main()
             }
         }
         // Safe update
+#pragma omp parallel for private(P_a)
         for(i=0;i<N;i++)
         {
             P_a = particles+i;
@@ -485,12 +504,14 @@ int main()
         printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i, 
                 particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                 particles[i].colli_p, particles[i].colli_w);
-                
+    
+    printf("Thread number:%d\n",threads);
     time2=clock();
     time=(double)(time2-time1)/CLOCKS_PER_SEC;
     printf("Time consumed: %10.8lf\n",time);
     
     fclose(stdin);
+    fclose(stdout);
     free(particles);
     free(colli_time);
     free(colli_mat);
