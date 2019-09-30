@@ -132,7 +132,7 @@ int main()
     Collision *colli_time = (Collision*)malloc(N*(N+1)/2*sizeof(Collision));
     int *colli_queue = (int *)malloc(N*sizeof(int));
     // Start sim
-    time1 = clock();
+    // time1 = clock();
     r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
     {
@@ -368,8 +368,8 @@ int main()
 
     printf("Thread number:%d\n",threads);
 
-    time2=clock();
-    time=(double)(time2-time1)/CLOCKS_PER_SEC;
+    // time2=clock();
+    // time=(double)(time2-time1)/CLOCKS_PER_SEC;
     //printf("Time consumed: %10.8lf\n",time);
     fclose(stdin);
     fclose(stdout);

@@ -93,7 +93,7 @@ int main()
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
     int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far;
-    long long time1, time2;
+    // long long time1, time2;
     double x, y, vx, vy, lambda, lambda_1, lambda_2, time, r_sq_4;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     bnd_far = L-r;
@@ -143,7 +143,7 @@ int main()
     Collision *colli_time = (Collision*)malloc(N*(N+1)/2*sizeof(Collision));
     int *colli_queue = (int *)malloc(N*sizeof(int));
     // Start sim
-    time1 = wall_clock_time();
+    // time1 = wall_clock_time();
     r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
     {
@@ -375,9 +375,9 @@ int main()
                 particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                 particles[i].colli_p, particles[i].colli_w);
                 
-    time2=wall_clock_time();
-    time=((double)(time2 - time1)) / 1000000000;
-    printf("Time consumed: %10.8lf\n",time);
+    // time2=wall_clock_time();
+    // time=((double)(time2 - time1)) / 1000000000;
+    // printf("Time consumed: %10.8lf\n",time);
     
     fclose(stdin);
     fclose(stdout);

@@ -195,7 +195,7 @@ int main()
     grid_cnt = (int*)malloc(N*sizeof(int));
     memset(grid_cnt,0, N*sizeof(int));
     // Start sim
-    time1 = clock();
+    // time1 = clock();
     r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
     {
@@ -388,10 +388,10 @@ int main()
         {
             colli = colli_time+i;
             /////
-            if(t == 0 && (colli->pa == 5||colli->pb==5))
-            {
-                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            }
+            // if(t == 0 && (colli->pa == 5||colli->pb==5))
+            // {
+            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            // }
             /////
             if(!colli_mat[colli->pa])
             {
@@ -506,9 +506,9 @@ int main()
                 particles[i].colli_p, particles[i].colli_w);
     
     printf("Thread number:%d\n",threads);
-    time2=clock();
-    time=(double)(time2-time1)/CLOCKS_PER_SEC;
-    printf("Time consumed: %10.8lf\n",time);
+    // time2=clock();
+    // time=(double)(time2-time1)/CLOCKS_PER_SEC;
+    // printf("Time consumed: %10.8lf\n",time);
     
     fclose(stdin);
     fclose(stdout);

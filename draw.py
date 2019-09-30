@@ -1,22 +1,24 @@
+'''
+if inputs is in print mode,
+you can use this scrip to visualize collision
+'''
+
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np
 import matplotlib.cm as cm
 from matplotlib.patches import Ellipse, Circle
-r = 1
-l = 10
-num_p = 20
-params = [eval(i) for i in open('input_rand.txt').readline().split()]
+params = [eval(i) for i in open('inputs.txt').readline().split()]
 num_p = params[0]
 l = params[1]
 r = params[2]
 steps = params[3]
-
+# print(params)
 h = 3
 w = 3
 particles = np.array([
     [eval(i) for i in line.split()[1:]]
-    for line in open('drawing.txt').readlines()[:num_p*h*w]
+    for line in open('outputs.txt').readlines()[:num_p*h*w]
 ])
 
 norm = mpl.colors.Normalize(vmin=0, vmax=num_p)

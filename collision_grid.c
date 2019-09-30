@@ -504,6 +504,7 @@ int main()
     printf("Time consumed: %10.8lf\n",time);
     
     fclose(stdin);
+    fclose(stdout);
     free(particles);
     free(colli_time);
     free(colli_mat);
