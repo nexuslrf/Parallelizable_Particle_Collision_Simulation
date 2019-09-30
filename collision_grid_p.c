@@ -370,7 +370,7 @@ int main()
                         }
                     }
                     if(!w)
-                        w=-1;
+                        w=-3;
                 }
             }
             // grid_cnt[j] = 0;
