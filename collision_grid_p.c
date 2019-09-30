@@ -293,7 +293,7 @@ int main()
         // for(i=16; i; i/=4)
         // {
             // for(j=offset-i; j<offset; j++)
-#pragma omp parallel for shared(cnt,colli_time,particles,grid_node,grid_cnt) private(k,a,b,q,w,k,dx1,dy1,P_a,P_b,\
+#pragma omp parallel for shared(cnt,colli_time,particles,grid_node,grid_cnt) private(a,b,q,w,k,dx1,dy1,P_a,P_b,\
         lambda,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD) schedule(dynamic)
         for(j=0;j<21;j++)
         {
