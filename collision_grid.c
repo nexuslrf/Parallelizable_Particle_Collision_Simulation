@@ -500,7 +500,7 @@ int main()
                 particles[i].colli_p, particles[i].colli_w);
                 
     time2=wall_clock_time();
-    time=((double)(after - before)) / 1000000000;
+    time=((double)(time2 - time1)) / 1000000000;
     printf("Time consumed: %10.8lf\n",time);
     
     fclose(stdin);
