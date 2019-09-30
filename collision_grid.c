@@ -119,11 +119,24 @@ void insert(Particle *p, int pid, int node, int sect, int lv, double offset_x, d
     else
         grid_node[par_node][grid_cnt[par_node]++] = pid;
 }
-
+long long wall_clock_time()
+{
+#ifdef LINUX
+    struct timespec tp;
+    clock_gettime(CLOCK_REALTIME, &tp);
+    return (long long)(tp.tv_nsec + (long long)tp.tv_sec * 1000000000ll);
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)(tv.tv_usec * 1000 + (long long)tv.tv_sec * 1000000000ll);
+#endif
+}
 int main()
 {
-    srand(0);
-    freopen("./input_rand.txt","r",stdin);
+    //srand(0);
+    srand((unsigned)time(NULL));
+    freopen("./inputs.txt","r",stdin);
+    freopen("./outputs.txt","w",stdout);
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
@@ -192,7 +205,7 @@ int main()
     grid_cnt = (int*)malloc(N*sizeof(int));
     memset(grid_cnt,0, N*sizeof(int));
     // Start sim
-    time1 = clock();
+    time1 = wall_clock_time();
     r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
     {
@@ -486,8 +499,8 @@ int main()
                 particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                 particles[i].colli_p, particles[i].colli_w);
                 
-    time2=clock();
-    time=(double)(time2-time1)/CLOCKS_PER_SEC;
+    time2=wall_clock_time();
+    time=((double)(after - before)) / 1000000000);
     printf("Time consumed: %10.8lf\n",time);
     
     fclose(stdin);

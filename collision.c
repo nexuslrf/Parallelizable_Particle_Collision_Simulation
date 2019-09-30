@@ -70,16 +70,30 @@ void bound_pos(Particle *p)
     p->x_n = p->x_n - tx*p->vx;
     p->y_n = p->y_n - ty*p->vy;
 }
-
+long long wall_clock_time()
+{
+#ifdef LINUX
+    struct timespec tp;
+    clock_gettime(CLOCK_REALTIME, &tp);
+    return (long long)(tp.tv_nsec + (long long)tp.tv_sec * 1000000000ll);
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)(tv.tv_usec * 1000 + (long long)tv.tv_sec * 1000000000ll);
+#endif
+}
 int main()
 {
-    srand(0);
-    freopen("./input_rand.txt","r",stdin);
+    //srand(0);
+    srand((unsigned)time(NULL));
+    freopen("./inputs.txt","r",stdin);
+    freopen("./outputs.txt","w",stdout);
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far, time1, time2;
+    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far;
+    long long time1, time2;
     double x, y, vx, vy, lambda, lambda_1, lambda_2, time, r_sq_4;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     bnd_far = L-r;
@@ -129,7 +143,7 @@ int main()
     Collision *colli_time = (Collision*)malloc(N*(N+1)/2*sizeof(Collision));
     int *colli_queue = (int *)malloc(N*sizeof(int));
     // Start sim
-    time1 = clock();
+    time1 = wall_clock_time();
     r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
     {
@@ -207,7 +221,7 @@ int main()
                 dDpdD = dx1*Dx + dy1*Dy;
                 if(dDpdD>=0) // To judge the right direction
                     continue;
-                // Case 2: overlap at startup
+                // Case 2: overlap at startup: just ignore
                 ////////////////
                 if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
                 {
@@ -361,11 +375,12 @@ int main()
                 particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                 particles[i].colli_p, particles[i].colli_w);
                 
-    time2=clock();
-    time=(double)(time2-time1)/CLOCKS_PER_SEC;
+    time2=wall_clock_time();
+    time=((double)(after - before)) / 1000000000);
     printf("Time consumed: %10.8lf\n",time);
     
     fclose(stdin);
+    fclose(stdout);
     free(particles);
     free(colli_time);
     free(colli_mat);
