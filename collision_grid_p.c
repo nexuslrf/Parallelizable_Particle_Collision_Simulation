@@ -76,6 +76,7 @@ void bound_pos(Particle *p)
     p->x_n = p->x_n - tx*p->vx;
     p->y_n = p->y_n - ty*p->vy;
 }
+//recursively divide p into one of the 21 grids
 void insert(Particle *p, int pid, int node, int sect, int lv, double offset_x, double offset_y)
 {
     int par_node = 4*node + sect;
@@ -293,10 +294,12 @@ int main()
         // for(i=16; i; i/=4)
         // {
             // for(j=offset-i; j<offset; j++)
+        int flag=0;
 #pragma omp parallel for shared(cnt,colli_time,particles,grid_node,grid_cnt) private(a,b,q,w,k,dx1,dy1,P_a,P_b,\
         lambda,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD) schedule(dynamic)
         for(j=0;j<21;j++)
         {
+            if(flag) continue;
             threads=omp_get_num_threads();
             for(k=0;k<grid_cnt[j];k++)
             {
@@ -319,24 +322,27 @@ int main()
                         dDpdD = dx1*Dx + dy1*Dy;
                         if(dDpdD>=0) // To judge the right direction
                             continue;
-                        
                         // Case 2: overlap at startup
                         ////////////////
                         if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
                         {
-                            // colli_time[cnt].time = 0;
-                            // if(a<b)
-                            // {
-                            //     colli_time[cnt].pa = a;
-                            //     colli_time[cnt].pb = b; // pa always smaller than pb
-                            // }
-                            // else
-                            // {
-                            //     colli_time[cnt].pa = b;
-                            //     colli_time[cnt].pb = a; // pa always smaller than pb
-                            // }
-                            // cnt++;
-                            continue; // no need to further detect.
+                            int count;
+#pragma omp critical
+                            {
+                                count=cnt++;
+                            }
+                             colli_time[count].time = 0;
+                             if(a<b)
+                             {
+                                 colli_time[count].pa = a;
+                                 colli_time[count].pb = b; // pa always smaller than pb
+                             }
+                             else
+                             {
+                                 colli_time[count].pa = b;
+                                 colli_time[count].pb = a; // pa always smaller than pb
+                             }
+                            flag=1;continue; // no need to further detect.
                         }
                         ////////////////
                         // Case 3: Normal collision case
@@ -448,6 +454,9 @@ int main()
             {
                 P_a = particles + colli->pa;
                 P_b = particles + colli->pb;
+                // if two particles coincide at the exact same coordinates from the start of a time step, ignore it (no normal direction)
+                if(colli->time==0 && P_a->x==P_b->x && P_a->y==P_b->y)
+                    continue;
                 P_a->x_n = P_a->x + colli->time*P_a->vx;
                 P_a->y_n = P_a->y + colli->time*P_a->vy;
                 P_b->x_n = P_b->x + colli->time*P_b->vx;
