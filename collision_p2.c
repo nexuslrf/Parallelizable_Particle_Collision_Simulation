@@ -203,17 +203,29 @@ int main()
                 }
             }
             ///////////////
-#pragma omp parallel for shared(cnt,colli_time,particles,P_a) private(dx1,dy1,P_b,lambda_1,\
+            int flag=0;
+#pragma omp parallel for shared(cnt,colli_time,particles,P_a,flag) private(dx1,dy1,P_b,lambda_1,\
                 lambda_2,lambda,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD)
             for(j=i+1; j<N; j++)
             {
+                if(flag) continue;
                 P_b = particles+j;
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
                 // Case 2: overlap at startup, not counting it as collision
                 ////////////////
                 if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
-                    continue;
+                {
+                    int count;
+#pragma omp critical
+                    {
+                        count=cnt++;
+                    }
+                    colli_time[count].time = 0;
+                    colli_time[count].pa = i;
+                    colli_time[count].pb = j; // pa always smaller than pb
+                    flag=1;continue; // no need to further detect.
+                }
                 //early detection
                 Dx = P_b->vx - P_a->vx;
                 Dy = P_b->vy - P_a->vy;
@@ -306,6 +318,9 @@ int main()
             {
                 P_a = particles + colli->pa;
                 P_b = particles + colli->pb;
+                // if two particles coincide at the exact same coordinates from the start of a time step, ignore it (no normal direction)
+                if(colli->time==0 && P_a->x==P_b->x && P_a->y==P_b->y)
+                    continue;
                 P_a->x_n = P_a->x + colli->time*P_a->vx;
                 P_a->y_n = P_a->y + colli->time*P_a->vy;
                 P_b->x_n = P_b->x + colli->time*P_b->vx;

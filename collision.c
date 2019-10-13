@@ -216,22 +216,21 @@ int main()
                 P_b = particles+j;
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
+                // Case 2: overlap at startup:
+                ////////////////
+                if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
+                {
+                    colli_time[cnt].time = 0;
+                    colli_time[cnt].pa = i;
+                    colli_time[cnt].pb = j; // pa always smaller than pb
+                    cnt++;
+                    break; // no need to further detect.
+                }
                 Dx = P_b->vx - P_a->vx;
                 Dy = P_b->vy - P_a->vy;
                 dDpdD = dx1*Dx + dy1*Dy;
                 if(dDpdD>=0) // To judge the right direction
                     continue;
-                // Case 2: overlap at startup: just ignore
-                ////////////////
-                if(dx1*dx1 + dy1*dy1 - r_sq_4<=0)
-                {
-                    // colli_time[cnt].time = 0;
-                    // colli_time[cnt].pa = i;
-                    // colli_time[cnt].pb = j; // pa always smaller than pb
-                    // cnt++;
-                    // break; // no need to further detect.
-                    continue;
-                }
                 ////////////////
                 // Case 3: Normal collision case
                 ////////////////
@@ -262,12 +261,6 @@ int main()
         for(i=0;i<cnt;i++)
         {
             colli = colli_time+i;
-            /////
-            // if(t == 0 && (colli->pa == 1||colli->pb==1))
-            // {
-            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            // }
-            /////
             if(!colli_mat[colli->pa])
             {
                 if(colli->pb>=N)
@@ -319,11 +312,13 @@ int main()
             {
                 P_a = particles + colli->pa;
                 P_b = particles + colli->pb;
+                // if two particles coincide at the exact same coordinates from the start of a time step, ignore it (no normal direction)
+                if(colli->time==0 && P_a->x==P_b->x && P_a->y==P_b->y)
+                    continue;
                 P_a->x_n = P_a->x + colli->time*P_a->vx;
                 P_a->y_n = P_a->y + colli->time*P_a->vy;
                 P_b->x_n = P_b->x + colli->time*P_b->vx;
                 P_b->y_n = P_b->y + colli->time*P_b->vy;
-                // printf("[Debug:P-P Colli] Pa: %10.8f %10.8f Pb: %10.8f %10.8f\n", P_a->x_n,P_a->y_n,P_b->x_n,P_b->y_n);
                 Dx = P_b->x_n - P_a->x_n;
                 Dy = P_b->y_n - P_a->y_n;
                 Delta = 1 - colli->time;
