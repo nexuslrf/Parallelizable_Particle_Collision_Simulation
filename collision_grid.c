@@ -325,7 +325,7 @@ int main()
                         
                         // Case 2: overlap at startup
                         ////////////////
-                        Delta = dx1*dx1 + dy1*dy1
+                        Delta = dx1*dx1 + dy1*dy1;
                         if(Delta - r_sq_4<=0 && Delta!=0)
                         {
                              colli_time[cnt].time = 0;

@@ -215,7 +215,7 @@ int main()
                 dy1 = P_b->y - P_a->y;
                 // Case 2: overlap at startup, not counting it as collision
                 ////////////////
-                Delta = dx1*dx1 + dy1*dy1
+                Delta = dx1*dx1 + dy1*dy1;
                 if(Delta - r_sq_4<=0 && Delta!=0)
                 {
                     int count;
