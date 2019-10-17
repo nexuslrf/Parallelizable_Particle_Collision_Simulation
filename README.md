@@ -82,3 +82,10 @@ Idea：
 
 1. line155-175: 减法顺序有问题，已修改
 2. line203-236: 参考[blog](https://www.gamasutra.com/view/feature/131424/pool_hall_lessons_fast_accurate_.php?page=2), 改进碰撞检测
+
+
+## Update oct 17:
+
+1. 考虑overlap， 
+2. 撞墙优先级更高
+
