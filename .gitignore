@@ -3,3 +3,9 @@ README.txt
 .vscode/sftp.json
 .DS_Store
 *.out
+collision_grid
+grid.txt
+outputs__
+grid.txt
+inputs2333.txt
+outputs_input_rand.txt
