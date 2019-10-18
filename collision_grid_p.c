@@ -249,18 +249,18 @@ int main()
                 lambda = lambda_1-lambda_2;
                 if(lambda==0) // Cornor collision!
                 {
-                    colli_time[cnt].pb = -1; // -1 to present this case.
-                    colli_time[cnt].time = lambda_1;
+                    colli_time[count].pb = -1; // -1 to present this case.
+                    colli_time[count].time = lambda_1;
                 }
                 else if(lambda<0) // x wall collision!
                 {
-                    colli_time[cnt].pb = -2; // -2 to present this case.
-                    colli_time[cnt].time = lambda_1;
+                    colli_time[count].pb = -2; // -2 to present this case.
+                    colli_time[count].time = lambda_1;
                 }
                 else if(lambda>0) // y wall collision!
                 {
-                    colli_time[cnt].pb = -3; // -3 to present this case.
-                    colli_time[cnt].time = lambda_2;
+                    colli_time[count].pb = -3; // -3 to present this case.
+                    colli_time[count].time = lambda_2;
                 }
                 P_a->x_n = P_a->x + colli_time[count].time * P_a->vx;
                 P_a->y_n = P_a->y + colli_time[count].time * P_a->vy;
@@ -402,7 +402,7 @@ int main()
             /////
             if(!colli_mat[colli->pa])
             {
-                if(colli->pb>=N)
+                if(colli->pb<0)
                 {
                     colli_mat[colli->pa] = 1;
                     colli_queue[real_colli++] = i;

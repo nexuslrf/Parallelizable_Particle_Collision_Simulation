@@ -48,10 +48,11 @@ __global__ void find_collisions(int num_threads)
     if(i>=n) //n threads corresponding to n particles
         return;
     particle_t *P_a, *P_b;
+    P_a=particles+i;
     P_a->x_n = P_a->x + P_a->vx;
     P_a->y_n = P_a->y + P_a->vy;
-    int lambda, lambda_1, lambda_2, wall_colli, cnt, dx1, dy1, Delta, Dx, Dy, dDpdD\
-        DDpDD, dDmdD;
+    double lambda, lambda_1, lambda_2, wall_colli, dx1, dy1, Delta, Dx, Dy, dDpdD, DDpDD, dDmdD;
+    int cnt;
 
     lambda_1 = lambda_2 = 2;
     wall_colli = 0;
@@ -66,12 +67,12 @@ __global__ void find_collisions(int num_threads)
         wall_colli = 1;
     }
 
-    if(y_n<r)
+    if(P_a->y_n<r)
     {
         lambda_2 = (r - P_a->y) / P_a->vy;
         wall_colli = 1;
     }
-    else if(y_n>bnd_far)
+    else if(P_a->y_n>bnd_far)
     {
         lambda_2 = (bnd_far - P_a->y) / P_a->vy;
         wall_colli = 1;
@@ -128,7 +129,7 @@ __global__ void find_collisions(int num_threads)
         Delta = r_sq_4*DDpDD - dDmdD*dDmdD;
         if(Delta<=0)
             continue;
-        Delta = sqrt(Delta);
+        Delta = sqrtf(Delta);
         lambda = (-dDpdD - Delta)/DDpDD;
         if(lambda<1)
         {
@@ -141,7 +142,7 @@ __global__ void find_collisions(int num_threads)
     }
 }
 
-__host__ find_real_collisions()
+__host__ void find_real_collisions()
 {
     for(int i=0;i<count;i++)
     {
@@ -166,15 +167,32 @@ __host__ find_real_collisions()
     }
 }
 
+__device__ void bound_pos(particle_t *p)
+{
+    double tx=0,ty=0;
+    if(p->x_n>bnd_far)
+        tx = (p->x_n-bnd_far)/p->vx;
+    else if(p->x_n<r)
+        tx = (p->x_n-r)/p->vx;
+    if(p->y_n>bnd_far)
+        ty = (p->y_n-bnd_far)/p->vy;
+    else if(p->y_n<r)
+        ty = (p->y_n-r)/p->vy;
+
+    tx =ty = tx>ty?tx:ty;
+    p->x_n = p->x_n - tx*p->vx;
+    p->y_n = p->y_n - ty*p->vy;
+}
+
 __global__ void update_particle(int num_threads)
 {
     int i = blockIdx.x * num_threads + threadIdx.x;
-    particle_t *P_a, *P_b;
-    Collision *Colli;
     if(i>=real_colli) //n threads corresponding to n collisions
         return;
+    particle_t *P_a, *P_b;
+    Collision *Colli;
+    double Dx ,Dy, Delta, dx1, dy1, dx2, dy2, DDpDD;
     Colli = colli_time + colli_queue[i];
-    // printf("[Debug:neg] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
     if(Colli->pb==-1) // Cornor colli;
     {
         P_a = particles + Colli->pa;
@@ -233,7 +251,6 @@ __global__ void update_particle(int num_threads)
         P_b->x_n = P_b->x_n + Delta*P_b->vx;
         P_b->y_n = P_b->y_n + Delta*P_b->vy;
         bound_pos(P_b);
-        //
     }
 }
 
@@ -247,7 +264,6 @@ __host__ void randomise_particles()
     /* Implement randomisation */
     for(int i=0; i<host_n; i++)
     {
-        particles[i].i = i;
         particles[i].x = doubleRand(host_r,host_bnd_far);
         particles[i].y = doubleRand(host_r,host_bnd_far);
         particles[i].vx = (1 - 2*RAND01)*doubleRand(host_l/(double)8.0/host_r,host_l/(double)4.0);
@@ -362,9 +378,8 @@ int main(int argc, char** argv)
     cudaMemcpyToSymbol(r_sq_4, &host_r_sq_4, sizeof(r_sq_4));
     check_cuda_errors();
 
-
     for (step = 0; step < host_s; step++) {
-        if (step == 0) {
+        if (step == 0 || mode == MODE_PRINT) {
             print_particles(step);
         }
         count=0; //initialize collision numbers every step
@@ -382,9 +397,21 @@ int main(int argc, char** argv)
         update_particle<<<num_blocks, num_threads>>>(num_threads); //one collision one thread
         /* Barrier */
         cudaDeviceSynchronize();
+        for(i=0;i<host_n;i++)
+        {
+            particles[i].x = particles[i].x_n;
+            particles[i].y = particles[i].y_n;
+        }
     }
 
     print_statistics(host_s);
+
+    fclose(stdin);
+    fclose(stdout);
+    cudaFree(particles);
+    cudaFree(colli_time);
+    cudaFree(colli_mat);
+    cudaFree(colli_queue);
 
     return 0;
 }
