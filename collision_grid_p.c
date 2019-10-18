@@ -249,18 +249,18 @@ int main()
                 lambda = lambda_1-lambda_2;
                 if(lambda==0) // Cornor collision!
                 {
-                    colli_time[count].pb = N; // N to present this case.
-                    colli_time[count].time = lambda_1;
+                    colli_time[cnt].pb = -1; // -1 to present this case.
+                    colli_time[cnt].time = lambda_1;
                 }
                 else if(lambda<0) // x wall collision!
                 {
-                    colli_time[count].pb = N+1; // N+1 to present this case.
-                    colli_time[count].time = lambda_1;
+                    colli_time[cnt].pb = -2; // -2 to present this case.
+                    colli_time[cnt].time = lambda_1;
                 }
                 else if(lambda>0) // y wall collision!
                 {
-                    colli_time[count].pb = N+2; // N+2 to present this case.
-                    colli_time[count].time = lambda_2;
+                    colli_time[cnt].pb = -3; // -3 to present this case.
+                    colli_time[cnt].time = lambda_2;
                 }
                 P_a->x_n = P_a->x + colli_time[count].time * P_a->vx;
                 P_a->y_n = P_a->y + colli_time[count].time * P_a->vy;
@@ -425,7 +425,7 @@ int main()
         {
             colli = colli_time + colli_queue[i];
             // printf("[Debug:neg] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            if(colli->pb==N) // Cornor colli; 
+            if(colli->pb==-1) // Cornor colli;
             {
                 P_a = particles + colli->pa;
                 P_a->vx = -1*P_a->vx;
@@ -434,7 +434,7 @@ int main()
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy; 
                 bound_pos(P_a);
             }
-            else if(colli->pb==N+1)//  X wall colli;
+            else if(colli->pb==-2)//  X wall colli;
             {
                 P_a = particles + colli->pa;
                 P_a->vx = -1*P_a->vx;
@@ -442,7 +442,7 @@ int main()
                 P_a->y_n = P_a->y+P_a->vy; 
                 bound_pos(P_a);
             }
-            else if(colli->pb==N+2)// Y wall colli;
+            else if(colli->pb==-3)// Y wall colli;
             {
                 P_a = particles + colli->pa;
                 P_a->vy = -1*P_a->vy;
