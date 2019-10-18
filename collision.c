@@ -264,7 +264,7 @@ int main()
             colli = colli_time+i;
             if(!colli_mat[colli->pa])
             {
-                if(colli->pb>=N)
+                if(colli->pb<0)
                 {
                     colli_mat[colli->pa] = 1;
                     colli_queue[real_colli++] = i;
