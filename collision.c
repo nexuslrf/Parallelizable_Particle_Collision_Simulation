@@ -216,6 +216,12 @@ int main()
                 P_b = particles+j;
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
+                // Early detection
+                Dx = P_b->vx - P_a->vx;
+                Dy = P_b->vy - P_a->vy;
+                dDpdD = dx1*Dx + dy1*Dy;
+                if(dDpdD>=0) // To judge the right direction
+                    continue;
                 // Case 2: overlap at startup:
                 ////////////////
                 Delta = dx1*dx1 + dy1*dy1;
@@ -227,11 +233,6 @@ int main()
                     cnt++;
                     break; // no need to further detect.
                 }
-                Dx = P_b->vx - P_a->vx;
-                Dy = P_b->vy - P_a->vy;
-                dDpdD = dx1*Dx + dy1*Dy;
-                if(dDpdD>=0) // To judge the right direction
-                    continue;
                 ////////////////
                 // Case 3: Normal collision case
                 ////////////////
@@ -262,6 +263,12 @@ int main()
         for(i=0;i<cnt;i++)
         {
             colli = colli_time+i;
+            /////
+            if(t == 0 && (colli->pa == 1||colli->pb==1))
+            {
+                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            }
+            /////
             if(!colli_mat[colli->pa])
             {
                 if(colli->pb<0)

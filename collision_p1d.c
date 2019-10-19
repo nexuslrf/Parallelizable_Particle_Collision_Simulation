@@ -216,6 +216,12 @@ int main()
                 P_b = particles+j;
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
+                //early detection
+                Dx = P_b->vx - P_a->vx;
+                Dy = P_b->vy - P_a->vy;
+                dDpdD = dx1*Dx + dy1*Dy;
+                if(dDpdD>=0) // To judge the right direction
+                    continue;
                 // Case 2: overlap at startup, not counting it as collision
                 ////////////////
                 Delta = dx1*dx1 + dy1*dy1;
@@ -229,14 +235,9 @@ int main()
                     colli_time[count].time = 0;
                     colli_time[count].pa = i;
                     colli_time[count].pb = j; // pa always smaller than pb
-                    flag=1;continue; // no need to further detect.
+                    flag=1;
+                    continue; // no need to further detect.
                 }
-                //early detection
-                Dx = P_b->vx - P_a->vx;
-                Dy = P_b->vy - P_a->vy;
-                dDpdD = dx1*Dx + dy1*Dy;
-                if(dDpdD>=0) // To judge the right direction
-                    continue;
                 ////////////////
                 // Case 3: Normal collision case
                 ////////////////

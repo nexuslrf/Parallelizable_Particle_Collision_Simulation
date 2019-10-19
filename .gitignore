@@ -9,3 +9,5 @@ outputs__
 grid.txt
 inputs2333.txt
 outputs_input_rand.txt
+run_mac.sh
+inputs.txt
