@@ -388,10 +388,10 @@ int main()
         {
             colli = colli_time+i;
             /////
-            if(t == 0 && (colli->pa == 1||colli->pb==1))
-            {
-                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            }
+            // if(t == 0 && (colli->pa == 10||colli->pb==10))
+            // {
+            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            // }
             /////
             if(!colli_mat[colli->pa])
             {
