@@ -264,7 +264,7 @@ int main()
         {
             colli = colli_time+i;
             /////
-            // if(t == 0 && (colli->pa == 10||colli->pb==10))
+            // if(1 && (colli->pa == 16||colli->pb==16))
             // {
             //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
             // }

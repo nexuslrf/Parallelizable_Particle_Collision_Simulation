@@ -42,9 +42,10 @@ Collision *colli;
     Every thread-> one particle compare N times
 */
 
-__global__ void find_collisions(int num_threads)
+__global__ void find_collisions(int step, int num_threads)
 {
     int i = blockIdx.x * num_threads + threadIdx.x;
+    // printf("[Debug:cuda_thread] step %d thread %d\n",step, i);
     if(i>=n) //n threads corresponding to n particles
         return;
     particle_t *P_a, *P_b;
@@ -77,7 +78,12 @@ __global__ void find_collisions(int num_threads)
         lambda_2 = (bnd_far - P_a->y) / P_a->vy;
         wall_colli = 1;
     }
-
+    ////
+    // if(i==16)
+    // {
+    //     printf("[Debug:cuda] %lf %lf %d\n", lambda_1, lambda_2, wall_colli);
+    // }
+    ////
     if(wall_colli)
     {
         cnt=atomicAdd(&count, 1); // nice!
@@ -148,6 +154,12 @@ __host__ void find_real_collisions()
     for(int i=0;i<count;i++)
     {
         colli = colli_time+i;
+        ////
+        // if(1 && (colli->pa == 16||colli->pb==16))
+        // {
+        //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+        // }
+        ////
         if(!colli_mat[colli->pa])
         {
             if(colli->pb<0)
@@ -322,7 +334,7 @@ int main(int argc, char** argv)
 {
     int i,j=0;
     double x, y, vx, vy;
-    int num_blocks, num_threads;
+    int num_blocks, num_threads, num_threads_p;
     int step;
     simulation_mode_t mode;
     char mode_buf[6];
@@ -387,15 +399,15 @@ int main(int argc, char** argv)
         real_colli=0;
         cudaMemset(colli_mat, 0, sizeof(int) * host_n);
         /* Call the kernel */
-        find_collisions<<<num_blocks, num_threads>>>(num_threads); //one particle one thread
+        find_collisions<<<num_blocks, num_threads>>>(step, num_threads); //one particle one thread
         /* Barrier */
         cudaDeviceSynchronize();
         // find real collisions
         qsort(colli_time, count, sizeof(Collision), compare);
         find_real_collisions();
         /* Call the kernel */
-        num_threads=(real_colli-1)/num_blocks+1;
-        update_particle<<<num_blocks, num_threads>>>(num_threads); //one collision one thread
+        num_threads_p =(real_colli-1)/num_blocks+1;
+        update_particle<<<num_blocks, num_threads_p>>>(num_threads_p); //one collision one thread
         /* Barrier */
         cudaDeviceSynchronize();
         for(i=0;i<host_n;i++)
@@ -403,6 +415,7 @@ int main(int argc, char** argv)
             particles[i].x = particles[i].x_n;
             particles[i].y = particles[i].y_n;
         }
+        print_particles(step+1);
     }
 
     print_statistics(host_s);
