@@ -4,6 +4,7 @@
 #include <time.h>
 
 #define RAND01 (rand()%2)
+#define eps 1e-10
 
 typedef enum {
     MODE_PRINT,
@@ -54,7 +55,7 @@ __global__ void find_collisions(int step, int num_threads)
     P_a->y_n = P_a->y + P_a->vy;
     double lambda, lambda_1, lambda_2, wall_colli, dx1, dy1, Delta, Dx, Dy, dDpdD, DDpDD, dDmdD;
     int cnt;
-
+    // Case 1
     lambda_1 = lambda_2 = 2;
     wall_colli = 0;
     if(P_a->x_n<r)
@@ -87,21 +88,21 @@ __global__ void find_collisions(int step, int num_threads)
     if(wall_colli)
     {
         cnt=atomicAdd(&count, 1); // nice!
-        colli_time[cnt].pa = i;
+        colli_time[cnt].pb = i;
         lambda = lambda_1-lambda_2;
         if(lambda==0) // Cornor collision!
         {
-            colli_time[cnt].pb = -1; // -1 to present this case.
+            colli_time[cnt].pa = -1; // -1 to present this case.
             colli_time[cnt].time = lambda_1;
         }
         else if(lambda<0) // x wall collision!
         {
-            colli_time[cnt].pb = -2; // -2 to present this case.
+            colli_time[cnt].pa = -2; // -2 to present this case.
             colli_time[cnt].time = lambda_1;
         }
         else if(lambda>0) // y wall collision!
         {
-            colli_time[cnt].pb = -3; // -3 to present this case.
+            colli_time[cnt].pa = -3; // -3 to present this case.
             colli_time[cnt].time = lambda_2;
         }
     }
@@ -155,20 +156,22 @@ __host__ void find_real_collisions()
     {
         colli = colli_time+i;
         ////
-        if(1 && (colli->pa == 2||colli->pb==2))
-        {
-            printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-        }
+        // if(1 && (colli->pa == 2||colli->pb==2))
+        // {
+        //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+        // }
         ////
-        if(!colli_mat[colli->pa])
-        {
-            if(colli->pb<0)
+        if(colli->pa<0){ //wall collision
+            if(!colli_mat[colli->pb])
             {
-                colli_mat[colli->pa] = 1;
+                colli_mat[colli->pb] = 1;
                 colli_queue[real_colli++] = i;
-                particles[colli->pa].colli_w++;
+                particles[colli->pb].colli_w++;
             }
-            else if(!colli_mat[colli->pb])
+        }
+        else if(!colli_mat[colli->pa])
+        {
+            if(!colli_mat[colli->pb])
             {
                 colli_mat[colli->pa] = 1;
                 colli_mat[colli->pb] = 1;
@@ -206,25 +209,25 @@ __global__ void update_particle(int num_threads)
     Collision *Colli;
     double Dx ,Dy, Delta, dx1, dy1, dx2, dy2, DDpDD;
     Colli = colli_time + colli_queue[i];
-    if(Colli->pb==-1) // Cornor colli;
+    if(Colli->pa==-1) // Cornor colli;
     {
-        P_a = particles + Colli->pa;
+        P_a = particles + Colli->pb;
         P_a->vx = -1*P_a->vx;
         P_a->vy = -1*P_a->vy;
         P_a->x_n = P_a->x+(1-2*Colli->time)*P_a->vx;
         P_a->y_n = P_a->y+(1-2*Colli->time)*P_a->vy;
         bound_pos(P_a);
     }
-    else if(Colli->pb==-2)//  X wall colli;
+    else if(Colli->pa==-2)//  X wall colli;
     {
-        P_a = particles + Colli->pa;
+        P_a = particles + Colli->pb;
         P_a->vx = -1*P_a->vx;
         P_a->x_n = P_a->x+(1-2*Colli->time)*P_a->vx;
         bound_pos(P_a);
     }
-    else if(Colli->pb==-3)// Y wall colli;
+    else if(Colli->pa==-3)// Y wall colli;
     {
-        P_a = particles + Colli->pa;
+        P_a = particles + Colli->pb;
         P_a->vy = -1*P_a->vy;
         P_a->y_n = P_a->y+(1-2*Colli->time)*P_a->vy;
         bound_pos(P_a);
@@ -308,9 +311,7 @@ __host__ int compare (const void * a, const void * b)
     Collision *colli_A = (Collision*)a;
     Collision *colli_B = (Collision*)b;
     double cmpf = colli_A->time - colli_B->time;
-    if(cmpf!=0)
-        return cmpf<0?-1:1;
-    else
+    if(fabs(cmpf)<eps)
     {
         int cmpt = colli_A->pa - colli_B->pa;
         if(cmpt!=0)
@@ -318,6 +319,8 @@ __host__ int compare (const void * a, const void * b)
         else
             return colli_A->pb - colli_B->pb;
     }
+    else
+        return cmpf<0?-1:1;
 }
 
 __host__ void check_cuda_errors()

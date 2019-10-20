@@ -82,21 +82,21 @@ __global__ void find_collisions(int step, int num_threads)
     if(wall_colli)
     {
         cnt=atomicAdd(&count, 1); // nice!
-        colli_time[cnt].pa = i;
+        colli_time[cnt].pb = i;
         lambda = lambda_1-lambda_2;
         if(lambda==0) // Cornor collision!
         {
-            colli_time[cnt].pb = -1; // -1 to present this case.
+            colli_time[cnt].pa = -1; // -1 to present this case.
             colli_time[cnt].time = lambda_1;
         }
         else if(lambda<0) // x wall collision!
         {
-            colli_time[cnt].pb = -2; // -2 to present this case.
+            colli_time[cnt].pa = -2; // -2 to present this case.
             colli_time[cnt].time = lambda_1;
         }
         else if(lambda>0) // y wall collision!
         {
-            colli_time[cnt].pb = -3; // -3 to present this case.
+            colli_time[cnt].pa = -3; // -3 to present this case.
             colli_time[cnt].time = lambda_2;
         }
     }

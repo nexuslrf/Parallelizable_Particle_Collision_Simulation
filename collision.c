@@ -9,6 +9,7 @@
 #include <math.h>
 
 #define RAND01 (rand()%2)
+double eps = 1e-6;
 
 typedef struct
 {
@@ -35,9 +36,7 @@ int compare (const void * a, const void * b)
     Collision *colli_A = (Collision*)a;
     Collision *colli_B = (Collision*)b;
     double cmpf = colli_A->time - colli_B->time;
-    if(cmpf!=0)
-        return cmpf<0?-1:1;
-    else
+    if(fabs(cmpf)<eps)
     {
         int cmpt = colli_A->pa - colli_B->pa;
         if(cmpt!=0)
@@ -45,6 +44,8 @@ int compare (const void * a, const void * b)
         else
             return colli_A->pb - colli_B->pb;
     }
+    else
+        return cmpf<0?-1:1;
 }
 int N, L, r, S;
 char mode[6];
@@ -209,8 +210,8 @@ int main()
                     colli_time[cnt].pa = -3; // -3 to present this case.
                     colli_time[cnt].time = lambda_2;
                 }
-                if(colli_time[cnt].time < 10e-8) // && colli_time[cnt].time > -MinDec)
-                    colli_time[cnt].time = 0;
+                // if(colli_time[cnt].time < 10e-8) // && colli_time[cnt].time > -MinDec)
+                //     colli_time[cnt].time = 0;
                 cnt++;
             }
             ///////////////
@@ -230,7 +231,7 @@ int main()
                 Delta = dx1*dx1 + dy1*dy1;
                 if(Delta - r_sq_4<=0 && Delta!=0)
                 {
-                    colli_time[cnt].time = 0;
+                    colli_time[cnt].time = 0.0;
                     colli_time[cnt].pa = i;
                     colli_time[cnt].pb = j; // pa always smaller than pb
                     cnt++;
@@ -263,24 +264,14 @@ int main()
         qsort(colli_time, cnt, sizeof(Collision), compare);
 
         // Filter out true collision.
-        Collision *ca, *cb;
         for(i=0;i<cnt;i++)
         {
             colli = colli_time+i;
             /////
-            if(1 && (colli->pa == 2||colli->pb==2))
-            {
-                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            }
-            if(t==3 && colli->pa == 2 && colli->pb == 8)
-            {
-                ca = colli;
-            }
-            if(t==3 && colli->pa == -3 && colli->pb == 2)
-            {
-                cb = colli;
-                printf("[Debug:compare] ca_time: %.16lf cb_time: %.16lf ca<cb?: %d \n",ca->time, cb->time, ca->time<cb->time?1:0);
-            }
+            // if(1 && (colli->pa == 2||colli->pb==2))
+            // {
+            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            // }
             /////
             if(colli->pa<0){ //wall collision
                 if(!colli_mat[colli->pb])
