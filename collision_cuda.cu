@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include "timer.h"
 
 #define RAND01 (rand()%2)
 #define eps 1e-10
@@ -156,7 +157,7 @@ __host__ void find_real_collisions()
     {
         colli = colli_time+i;
         ////
-        // if(1 && (colli->pa == 0||colli->pb==0))
+        // if(1 && (colli->pa == 2||colli->pb==2))
         // {
         //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
         // }
@@ -335,6 +336,7 @@ __host__ void check_cuda_errors()
 
 int main(int argc, char** argv)
 {
+    StartTimer();
     int i,j=0;
     double x, y, vx, vy;
     int num_blocks, num_threads, num_threads_p;
@@ -418,10 +420,13 @@ int main(int argc, char** argv)
             particles[i].x = particles[i].x_n;
             particles[i].y = particles[i].y_n;
         }
-        print_particles(step+1);
+        if(mode==MODE_PRINT)
+            print_particles(step+1);
     }
 
     print_statistics(host_s);
+    double exec_time=GetTimer();
+    printf("Time elapsed:%lf",exec_time);
 
     fclose(stdin);
     fclose(stdout);
