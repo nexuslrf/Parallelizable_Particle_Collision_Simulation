@@ -20,7 +20,7 @@ int main()
   int computeCapabilityMinor = props.minor;
   int multiProcessorCount = props.multiProcessorCount;
   int warpSize = props.warpSize;
+  int maxThreadsPerBlock = props.maxThreadsPerBlock;
 
-
-  printf("Device ID: %d\nNumber of SMs: %d\nCompute Capability Major: %d\nCompute Capability Minor: %d\nWarp Size: %d\n", deviceId, multiProcessorCount, computeCapabilityMajor, computeCapabilityMinor, warpSize);
+  printf("Device ID: %d\nNumber of SMs: %d\nCompute Capability Major: %d\nCompute Capability Minor: %d\nWarp Size: %d\nMaxThread Per Block: %d\n", deviceId, multiProcessorCount, computeCapabilityMajor, computeCapabilityMinor, warpSize, maxThreadsPerBlock);
 }
