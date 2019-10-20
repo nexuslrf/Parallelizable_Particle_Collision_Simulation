@@ -389,7 +389,7 @@ int main()
         {
             colli = colli_time+i;
             /////
-            // if(t == 0 && (colli->pa == 10||colli->pb==10))
+            // if(1 && (colli->pa == 0||colli->pb==10))
             // {
             //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
             // }
@@ -433,6 +433,7 @@ int main()
                 P_a = particles + colli->pb;
                 P_a->vx = -1*P_a->vx;
                 P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
+                P_a->y_n = P_a->y+P_a->vy; 
                 bound_pos(P_a);
             }
             else if(colli->pa==-3)// Y wall colli;
@@ -440,6 +441,7 @@ int main()
                 P_a = particles + colli->pb;
                 P_a->vy = -1*P_a->vy;
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy;
+                P_a->x_n = P_a->x+P_a->vx;
                 // printf("[Debug:Y wall Colli] Pa: %10.8f %10.8f\n", P_a->x_n,P_a->y_n);
                 bound_pos(P_a);
             }
