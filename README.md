@@ -89,3 +89,6 @@ Idea：
 1. 考虑overlap， 
 2. 撞墙优先级更高
 
+## NV Prof Visualization:
+
+https://github.com/ezyang/nvprof2json
