@@ -156,7 +156,7 @@ __host__ void find_real_collisions()
     {
         colli = colli_time+i;
         ////
-        // if(1 && (colli->pa == 2||colli->pb==2))
+        // if(1 && (colli->pa == 0||colli->pb==0))
         // {
         //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
         // }
