@@ -7,6 +7,7 @@
 #include <xmmintrin.h>
 #include <string.h>
 #include <math.h>
+#include "timer.h"
 
 #define RAND01 (rand()%2)
 double eps = 1e-10;
@@ -136,10 +137,11 @@ long long wall_clock_time()
 }
 int main()
 {
+    StartTimer();
     //srand(0);
     srand((unsigned)time(NULL));
-    freopen("./inputs.txt","r",stdin);
-    freopen("./outputs.txt","w",stdout);
+    // freopen("./inputs.txt","r",stdin);
+    // freopen("./outputs.txt","w",stdout);
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
@@ -508,12 +510,9 @@ int main()
                 particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                 particles[i].colli_p, particles[i].colli_w);
                 
-    time2=wall_clock_time();
-    time=((double)(time2 - time1)) / 1000000000;
-    printf("Time consumed: %10.8lf\n",time);
-    
-    fclose(stdin);
-    fclose(stdout);
+    double exec_time=GetTimer();
+    printf("Time elapsed: %lf ms",exec_time);
+
     free(particles);
     free(colli_time);
     free(colli_mat);

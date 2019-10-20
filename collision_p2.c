@@ -7,6 +7,7 @@
 #include <xmmintrin.h>
 #include <string.h>
 #include <math.h>
+#include "timer.h"
 
 #define RAND01 (rand()%2)
 #define T_NUM 4
@@ -75,9 +76,10 @@ void bound_pos(Particle *p)
 
 int main()
 {
+    StartTimer();
     srand((unsigned)time(NULL));
-    freopen("./inputs.txt","r",stdin);
-    freopen("./outputs.txt","w",stdout);
+    // freopen("./inputs.txt","r",stdin);
+    // freopen("./outputs.txt","w",stdout);
     scanf("%d %d %d %d %s",&N, &L, &r, &S, mode);
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
@@ -379,12 +381,9 @@ int main()
                particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
                particles[i].colli_p, particles[i].colli_w);
 
-    printf("Thread number:%d\n",threads);
-    // time2=clock();
-    // time=(double)(time2-time1)/CLOCKS_PER_SEC;
-    //printf("Time consumed: %10.8lf\n",time);
-    fclose(stdin);
-    fclose(stdout);
+    double exec_time=GetTimer();
+    printf("Time elapsed: %lf ms",exec_time);
+
     free(particles);
     free(colli_time);
     free(colli_mat);

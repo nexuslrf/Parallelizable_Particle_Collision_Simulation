@@ -343,6 +343,7 @@ __host__ void check_cuda_errors()
 int main(int argc, char** argv)
 {
     StartTimer();
+    srand((unsigned)time(NULL));
     int i,j=0;
     double x, y, vx, vy;
     int num_blocks, num_threads, chunk_p, chunk_c, total_threads;
@@ -350,8 +351,8 @@ int main(int argc, char** argv)
     simulation_mode_t mode;
     char mode_buf[6];
 
-    freopen("./inputs.txt","r",stdin);
-    freopen("./outputs.txt","w",stdout);
+    // freopen("./inputs.txt","r",stdin);
+    // freopen("./outputs.txt","w",stdout);
     srand(0);
     if (argc != 3) {
         printf("Usage:\n%s num_blocks num_threads\n", argv[0]);
@@ -436,8 +437,6 @@ int main(int argc, char** argv)
     double exec_time=GetTimer();
     printf("Time elapsed:%lf",exec_time);
 
-    fclose(stdin);
-    fclose(stdout);
     cudaFree(particles);
     cudaFree(colli_time);
     cudaFree(colli_mat);
