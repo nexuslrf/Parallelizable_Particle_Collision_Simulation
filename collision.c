@@ -9,7 +9,7 @@
 #include <math.h>
 
 #define RAND01 (rand()%2)
-double eps = 1e-6;
+double eps = 1e-10;
 
 typedef struct
 {

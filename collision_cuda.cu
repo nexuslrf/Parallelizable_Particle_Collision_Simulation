@@ -137,7 +137,7 @@ __global__ void find_collisions(int step, int num_threads)
         Delta = r_sq_4*DDpDD - dDmdD*dDmdD;
         if(Delta<=0)
             continue;
-        Delta = sqrtf(Delta);
+        Delta = sqrt(Delta);
         lambda = (-dDpdD - Delta)/DDpDD;
         if(lambda<1)
         {
