@@ -469,12 +469,12 @@ int main(int argc, char** argv)
     }
 
     print_statistics(host_s);
-    cudaStreamDestroy(stream1);
-    cudaStreamDestroy(stream2);
 
     double exec_time=GetTimer();
     printf("Time elapsed: %lf ms",exec_time);
 
+    cudaStreamDestroy(stream1);
+    cudaStreamDestroy(stream2);
     cudaFree(particles);
     cudaFree(colli_time);
     cudaFree(colli_mat);

@@ -44,14 +44,12 @@ Collision *colli;
     Every thread-> one particle compare N times
 */
 
-__global__ void find_collisions(int chunk_size)
+__global__ void find_collisions(int offset)
 {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
     // printf("[Debug:cuda_thread] step %d thread %d\n",step, i);
-    idx = idx * chunk_size;
-    int i;
     particle_t *P_a, *P_b;
-    for(i=idx;i<idx+chunk_size&&i<n;i++)
+    for(;i<n;i+=offset)
     {
         P_a=particles+i;
         P_a->x_n = P_a->x + P_a->vx;
@@ -204,15 +202,13 @@ __device__ void bound_pos(particle_t *p)
     p->y_n = p->y_n - ty*p->vy;
 }
 
-__global__ void update_particle(int chunk_size)
+__global__ void proc_colli(int offset)
 {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    idx = idx * chunk_size;
-    int i;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
     particle_t *P_a, *P_b;
     Collision *Colli;
     double Dx ,Dy, Delta, dx1, dy1, dx2, dy2, DDpDD;
-    for(i=idx;i<idx+chunk_size&&i<real_colli;i++)
+    for(;i<real_colli;i+=offset)
     {
         Colli = colli_time + colli_queue[i];
         if(Colli->pa==-1) // Cornor colli;
@@ -274,6 +270,17 @@ __global__ void update_particle(int chunk_size)
             P_b->y_n = P_b->y_n + Delta*P_b->vy;
             bound_pos(P_b);
         }
+    }
+}
+
+__global__ void update_particle(int offset)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    for(;i<n;i++)
+    {
+        particles[i].x = particles[i].x_n;
+        particles[i].y = particles[i].y_n;
+        colli_mat[i] = 0;
     }
 }
 
@@ -346,7 +353,7 @@ int main(int argc, char** argv)
     srand((unsigned)time(NULL));
     int i,j=0;
     double x, y, vx, vy;
-    int num_blocks, num_threads, chunk_p, chunk_c, total_threads;
+    int num_blocks, num_threads, total_threads;
     int step;
     simulation_mode_t mode;
     char mode_buf[6];
@@ -369,8 +376,7 @@ int main(int argc, char** argv)
     scanf("%d", &host_s);
     scanf("%5s", mode_buf);
     host_bnd_far = host_l - host_r;
-    host_r_sq_4 = host_r * host_r * 4;
-    chunk_p = (host_n-1) / total_threads + 1;
+    host_r_sq_4 = host_r * host_r * 4;;
 
     cudaMallocManaged((void**)&particles, sizeof(particle_t) * host_n);
     cudaMallocManaged((void**)&colli_mat,sizeof(int) * host_n);
@@ -411,23 +417,24 @@ int main(int argc, char** argv)
         }
         count=0; //initialize collision numbers every step
         real_colli=0;
-        cudaMemset(colli_mat, 0, sizeof(int) * host_n);
+        // cudaMemset(colli_mat, 0, sizeof(int) * host_n);
         /* Call the kernel */
-        find_collisions<<<num_blocks, num_threads>>>(chunk_p); 
+        find_collisions<<<num_blocks, num_threads>>>(total_threads); 
         /* Barrier */
         cudaDeviceSynchronize();
         // find real collisions
         qsort(colli_time, count, sizeof(Collision), compare);
         find_real_collisions();
         /* Call the kernel */
-        chunk_c =(real_colli-1)/total_threads+1; 
-        update_particle<<<num_blocks, num_threads>>>(chunk_c); 
+        proc_colli<<<num_blocks, num_threads>>>(total_threads); 
+        // update_particle<<<num_blocks, num_threads>>>(total_threads); 
         /* Barrier */
         cudaDeviceSynchronize();
         for(i=0;i<host_n;i++)
         {
             particles[i].x = particles[i].x_n;
             particles[i].y = particles[i].y_n;
+            colli_mat[i] = 0;
         }
         if(mode==MODE_PRINT)
             print_particles(step+1);
