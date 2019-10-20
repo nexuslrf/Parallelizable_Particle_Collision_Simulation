@@ -209,10 +209,8 @@ int main()
                 }
             }
             ///////////////
-            int flag=0;
             for(j=i+1; j<N; j++)
             {
-                if(flag) continue;
                 P_b = particles+j;
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
@@ -235,7 +233,6 @@ int main()
                     colli_time[count].time = 0;
                     colli_time[count].pa = i;
                     colli_time[count].pb = j; // pa always smaller than pb
-                    flag=1;
                     continue; // no need to further detect.
                 }
                 ////////////////

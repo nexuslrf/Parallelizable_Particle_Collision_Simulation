@@ -188,26 +188,29 @@ int main()
                 wall_colli = 1;
             }
             // printf("[Debug:lambda] %10.8f %10.8f\n",lambda_1, lambda_2);
+            
             if(wall_colli)
             {
                 // printf("[Debug:Colli_wall] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
-                colli_time[cnt].pa = i;
+                colli_time[cnt].pb = i;  //exchange pa,pb here to ensure that pa<pb
                 lambda = lambda_1-lambda_2;
                 if(lambda==0) // Cornor collision!
                 {
-                    colli_time[cnt].pb = -1; // -1 to present this case.
+                    colli_time[cnt].pa = -1; // -1 to present this case.
                     colli_time[cnt].time = lambda_1;
                 }
                 else if(lambda<0) // x wall collision!
                 {
-                    colli_time[cnt].pb = -2; // -2 to present this case.
+                    colli_time[cnt].pa = -2; // -2 to present this case.
                     colli_time[cnt].time = lambda_1;
                 }
                 else if(lambda>0) // y wall collision!
                 {
-                    colli_time[cnt].pb = -3; // -3 to present this case.
+                    colli_time[cnt].pa = -3; // -3 to present this case.
                     colli_time[cnt].time = lambda_2;
                 }
+                if(colli_time[cnt].time < 10e-8) // && colli_time[cnt].time > -MinDec)
+                    colli_time[cnt].time = 0;
                 cnt++;
             }
             ///////////////
@@ -260,24 +263,36 @@ int main()
         qsort(colli_time, cnt, sizeof(Collision), compare);
 
         // Filter out true collision.
+        Collision *ca, *cb;
         for(i=0;i<cnt;i++)
         {
             colli = colli_time+i;
             /////
-            // if(1 && (colli->pa == 16||colli->pb==16))
-            // {
-            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            // }
-            /////
-            if(!colli_mat[colli->pa])
+            if(1 && (colli->pa == 2||colli->pb==2))
             {
-                if(colli->pb<0)
+                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            }
+            if(t==3 && colli->pa == 2 && colli->pb == 8)
+            {
+                ca = colli;
+            }
+            if(t==3 && colli->pa == -3 && colli->pb == 2)
+            {
+                cb = colli;
+                printf("[Debug:compare] ca_time: %.16lf cb_time: %.16lf ca<cb?: %d \n",ca->time, cb->time, ca->time<cb->time?1:0);
+            }
+            /////
+            if(colli->pa<0){ //wall collision
+                if(!colli_mat[colli->pb])
                 {
-                    colli_mat[colli->pa] = 1;
+                    colli_mat[colli->pb] = 1;
                     colli_queue[real_colli++] = i;
-                    particles[colli->pa].colli_w++;
+                    particles[colli->pb].colli_w++;
                 }
-                else if(!colli_mat[colli->pb])
+            }
+            else if(!colli_mat[colli->pa])
+            {
+                if(!colli_mat[colli->pb])
                 {
                     colli_mat[colli->pa] = 1;
                     colli_mat[colli->pb] = 1;
@@ -292,25 +307,25 @@ int main()
         {
             colli = colli_time + colli_queue[i];
             // printf("[Debug:neg] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
-            if(colli->pb==-1) // Cornor colli;
+            if(colli->pa==-1) // Cornor colli;
             {
-                P_a = particles + colli->pa;
+                P_a = particles + colli->pb;
                 P_a->vx = -1*P_a->vx;
                 P_a->vy = -1*P_a->vy;
                 P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy; 
                 bound_pos(P_a);
             }
-            else if(colli->pb==-2)//  X wall colli;
+            else if(colli->pa==-2)//  X wall colli;
             {
-                P_a = particles + colli->pa;
+                P_a = particles + colli->pb;
                 P_a->vx = -1*P_a->vx;
                 P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
                 bound_pos(P_a);
             }
-            else if(colli->pb==-3)// Y wall colli;
+            else if(colli->pa==-3)// Y wall colli;
             {
-                P_a = particles + colli->pa;
+                P_a = particles + colli->pb;
                 P_a->vy = -1*P_a->vy;
                 P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy;
                 // printf("[Debug:Y wall Colli] Pa: %10.8f %10.8f\n", P_a->x_n,P_a->y_n);

@@ -206,10 +206,8 @@ int main()
                 }
             }
             ///////////////
-            int flag=0;
             for(j=i+1; j<N; j++)
             {
-                if(flag) continue;
                 P_b = particles+j;
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
@@ -232,7 +230,7 @@ int main()
                     colli_time[count].time = 0;
                     colli_time[count].pa = i;
                     colli_time[count].pb = j; // pa always smaller than pb
-                    flag=1;continue; // no need to further detect.
+                    continue; // no need to further detect.
                 }
                 ////////////////
                 // Case 3: Normal collision case
@@ -267,6 +265,12 @@ int main()
         for(i=0;i<cnt;i++)
         {
             colli = colli_time+i;
+            /////
+            if(1 && (colli->pa == 10||colli->pb==10))
+            {
+                printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            }
+            /////
             if(!colli_mat[colli->pa])
             {
                 if(colli->pb<0)
