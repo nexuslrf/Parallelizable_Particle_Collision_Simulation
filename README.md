@@ -77,7 +77,7 @@ To avoid the errors associated with the floating pointing computations, we use d
 
 You can them in [report](report.pdf) file.
 
-##How to run
+## How to run
 
 * for non-CUDA codes, eg:
 
