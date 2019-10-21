@@ -8,17 +8,27 @@ import matplotlib as mpl
 import numpy as np
 import matplotlib.cm as cm
 from matplotlib.patches import Ellipse, Circle
-params = [eval(i) for i in open('inputs.txt').readline().split()]
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--input_file', type=str, default='inputs.txt')
+parser.add_argument('--output_file', type=str, default='outputs.txt')
+parser.add_argument('--fig_name', type=str, default='colli_demo.png')
+parser.add_argument('--wide', type=int, default=3)
+parser.add_argument('--height', type=int, default=3)
+args = parser.parse_args()
+
+params = [eval(i) if i.isdigit() else i for i in open(args.input_file).readline().split()]
 num_p = params[0]
 l = params[1]
 r = params[2]
 steps = params[3]
 # print(params)
-h = 3
-w = 3
+h = args.wide
+w = args.height
 particles = np.array([
     [eval(i) for i in line.split()[1:]]
-    for line in open('outputs.txt').readlines()[:num_p*h*w]
+    for line in open(args.output_file).readlines()[:num_p*h*w]
 ])
 
 norm = mpl.colors.Normalize(vmin=0, vmax=num_p)
@@ -40,7 +50,7 @@ for i in range(h):
             ax[i][j].quiver(particles[k,1],particles[k,2], 
                         particles[k,3], particles[k,4], 
                         color=mps.to_rgba(particles[k,0]))
-        ax[i][j].set_title(f"Step {h*i+j}")
+        ax[i][j].set_title("Step {}".format(h*i+j))
 
 fig.tight_layout()
 fig.subplots_adjust(right=0.8,bottom=0.2)
@@ -49,4 +59,4 @@ cbar = fig.colorbar(sca, cax=cbar_ax2, ticks=[0,4,9,14,19])
 cbar.ax.set_ylabel('Particle Index', rotation=270)
 # plt.tight_layout()
 # plt.show()
-plt.savefig("colli_demo.png")
+plt.savefig(args.fig_name)

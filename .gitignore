@@ -11,3 +11,5 @@ inputs2333.txt
 outputs_input_rand.txt
 run_mac.sh
 inputs.txt
+old/*
+tmp/*

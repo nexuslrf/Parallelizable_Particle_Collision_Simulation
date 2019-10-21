@@ -1,94 +1,111 @@
-https://www.soinside.com/question/FXNseYqxjkZhbrYKHisAgM
+# Particle Collision Simulation
 
-To compile code: 
-```
-gcc -fopenmp -o collision collision.c -lm
-```
+Particle Collision Simulation with OpenMP and CUDA
 
-Formulas can be seen in [MS whiteboard](https://wbd.ms/share/v2/aHR0cHM6Ly93aGl0ZWJvYXJkLm1pY3Jvc29mdC5jb20vYXBpL3YxLjAvd2hpdGVib2FyZHMvcmVkZWVtLzhkMTA5YWQwZGRjMDQxZGZhZjA4MjhlNDY3ZTI3NzRhX0JCQTcxNzYyLTEyRTAtNDJFMS1CMzI0LTVCMTMxRjQyNEUzRA==)
+A [report](report.pdf) file can also be seen.
 
-(Tip: use [MathJax Plugin](https://chrome.google.com/webstore/detail/mathjax-plugin-for-github/ioemnmodlmafdkllaclgeombjnmnbima) with Chrome to render tex math expression)
+![fig](figs/colli_demo.png)
 
-**Q1**. Given 2 moving particles of size $r$, with $\vec{v_1},\vec{v_2}$, when collision happens?
+## File List
 
-![](./figs/colli.png)
+* `collision_seq.c`: sequential implementation
+* `collision_seq_p*.c`: different parallelized sequential implementation mentioned in report
+* `collision_grid.c`: grid implementation 
+* `collision_grid_p.c`: parallelized grid implementation 
+* `collision_cuda_basic.cu`: basic version of CUDA 
+* `collision_cuda_balance.cu`: balanced version of CUDA
 
-$\iff$
+## Format
 
-$\vec{AE}=\lambda\vec{AC},\quad\vec{BF}=\lambda\vec{BD},\quad||\vec{EF}||=2r$
+### Input
 
-$A(x_1,y_1), C(x_1',y_1'), B(x_2,y_2), D(x_2',y_2')$  $\Rightarrow$
+Input file strictly follows the structure shown below: 
 
-$\vec{EF} = -\vec{AE}+\vec{AB}+\vec{BF}$
+1. N – Number of particles on the square surface  
+2. L – Size of the square (in μm)  
+3. r – Radius of the particle (in μm)  
+4. S – Number of steps (timeunits) to run the simulation for  
+5. print or perf– If word print appears, the position of each particle needs to be printed at each step.  Otherwise perf should appear.  
+6. Optional: For each particle, show on one line the following information, separated by space: 
+   * i–the index of the particle from 0 to N−1
+   * x – intial position of particle index i on x axis (in μm)
+   * y – intial position of particle index i on y axis (in μm)
+   * vx – initial velocity on the x axis of particle i (in μm/timeunit) 
+   * vy – initial velocity on the y axis of particle i (in μm/timeunit) 
 
-$\vec{EF} = \left(\lambda(x_2'-x_1'+x_1-x_2)+x_2-x_1,\lambda(y_2'-y_1'+y_1-y_2)+y_2-y_1\right)$
+If the initial location of the particles is not provided, program will generate random positions and velocities for all particles. The positions should be values within the 2D surface L × L, while velocities should be in the interval L/r and L/8r . 
 
-given $||\vec{EF}||^2=4r^2$, set $\Delta_x=x_2-x_1$ ....; $D_x = \Delta_x'-\Delta_x$ ...
-
-$\Rightarrow$
-
-$\lambda^2(D_x^2+D_y^2)+2\lambda(\Delta_xD_x+\Delta_yD_y)+\Delta_x^2+\Delta_y^2-4r^2=0$
-
-$\Rightarrow$
-
-$\lambda = $ blabla...
-
-
-
-For parallelism,  for the same sequential code, we can try to parallel it in different ways. 
-
-For p1.c, p2.c and p3.c, the difference is around line 160. p1.c only parallelizes the outer i loop, p2.c just parallelizes the inner j loop while p3.c parallelizes them both.
-
-Under the case where schedule are all static, p2 performs best around 8s (based on inputs.txt). p1 follows with around 30s and p3 performs worst like 200+ secs.
-
-For p1d.c, I change the schedule in two of the parallelism into dynamic(line 160 and 300). This improves the performance of p1, into like 20s. 
-
-But the same improvement does not work for the inner loop. It turns the performance into 90s.
-
-Overall, the best one is p2.c (inner j loop with static schedule).
-
-### Issues:
-
-1. 初始化的时候，不用做并行啦，这个不是关注点
-
-2. clock() 的位置，从step0 开始，init不考虑了
-
-## Algorithm Improvements:
-
-benchmark: 
+### Sample Input
 
 ```
-4000 200 1 100 perf
+1000 20000 1 1000 print
 ```
 
-| Naive ver. | Relative |
-| ---------- | -------- |
-| 3.65       | 3.30     |
+### Output
 
-## Grid
+Output file strictly follows the structure shown below: 
 
-每个点的轨迹 -> bounding box 
+1. Print the positions and velocities of each particle in the beginning of the simulation. For each particle, show on one line the following information, separated by space: 
+   * 0 – step 0 in the simulation
+   * i – the index of the particle
+   * x – initial position of particle index i on x axis (in μm)
+   * y – initial position of particle index i on y axis (in μm)
+   * vx – initial velocity on the x axis of particle i (in μm/timeunit) • vy – initial velocity on the y axis of particle i (in μm/timeunit) 
+   
+2. If print is used in the input file, at each step (time unit) tu, your program should output the positions and velocities of each particle. The print should be done after the particle movement is computed for that step. For each particle, show on one line the following information, separated by space: 
+   * tu – the step in the simulation
+   * i – the index of the particle
+   * x – position of particle index i on x axis (in μm) at time tu
+   * y – position of particle index i on y axis (in μm) at time tu
+   * vx – velocity on the x axis of particle i (in μm/timeunit) at time tu 
+   * vy – velocity on the y axis of particle i (in μm/timeunit) at time tu 
+   
+3. At the end of the simulation, for each particle show on one line the following information, separated by space: 
+   * S – last step in the simulation
+   * i – the index of the particle
+   * x – final position of particle index i on x axis (in μm)
+   * y – final position of particle index i on y axis (in μm)
+   * vx – final velocity on the x axis of particle i (in μm/timeunit) 
+   * vy – final velocity on the y axis of particle i (in μm/timeunit) 
+   * pcollisions – total number of collisions with other particles
+   * wcollisions – total number of collisions with the wall 
+   
 
-不断细化：
-    1. 完全在block中的particle
-    2. 部分在block中的particle
-只与同级或次级的block比较
+To avoid the errors associated with the floating pointing computations, we use double precision floating point operations (double) for x, y, vx, vy. 
 
-Idea：
+### Physics Engine
 
------------------------
+You can them in [report](report.pdf) file.
 
-## Update:
+##How to run
 
-1. line155-175: 减法顺序有问题，已修改
-2. line203-236: 参考[blog](https://www.gamasutra.com/view/feature/131424/pool_hall_lessons_fast_accurate_.php?page=2), 改进碰撞检测
+* for non-CUDA codes, eg:
 
+  ```bash
+  ./run_omp inputs.txt collision_seq
+  ```
 
-## Update oct 17:
+* for CUDA codes, eg:
 
-1. 考虑overlap， 
-2. 撞墙优先级更高
+  ```bash
+  ./run_cuda inputs.txt collision_cuda_basic [num block] [num thread]
+  ```
 
-## NV Prof Visualization:
+* to draw demo fig:
 
-https://github.com/ezyang/nvprof2json
+  ```bash
+  python draw.py --inputs_file inputs.txt --outputs_file outputs.txt
+  ```
+
+## Results to show
+
+### Performance
+
+![tab](figs/tab.png)
+
+### CUDA Visualization
+
+![nvvp](figs/nvvp.png)
+
+simple nvvp ref https://github.com/ezyang/nvprof2json
+
