@@ -21,10 +21,6 @@ typedef struct
     int colli_p;
     int colli_w;
     // Speculative pts
-    /////////////////
-    double x_n;
-    double y_n;
-    /////////////////
 }  Particle;
 typedef struct
 {
@@ -59,18 +55,18 @@ void bound_pos(Particle *p)
 {
     int bnd_far = L-r;
     double tx=0,ty=0;
-    if(p->x_n>bnd_far)
-        tx = (p->x_n-bnd_far)/p->vx;
-    else if(p->x_n<r)
-        tx = (p->x_n-r)/p->vx;
-    if(p->y_n>bnd_far)
-        ty = (p->y_n-bnd_far)/p->vy;
-    else if(p->y_n<r)
-        ty = (p->y_n-r)/p->vy;
-    
+    if(p->x>bnd_far)
+        tx = (p->x-bnd_far)/p->vx;
+    else if(p->x<r)
+        tx = (p->x-r)/p->vx;
+    if(p->y>bnd_far)
+        ty = (p->y-bnd_far)/p->vy;
+    else if(p->y<r)
+        ty = (p->y-r)/p->vy;
+
     tx =ty = tx>ty?tx:ty;
-    p->x_n = p->x_n - tx*p->vx;
-    p->y_n = p->y_n - ty*p->vy;
+    p->x = p->x - tx*p->vx;
+    p->y = p->y - ty*p->vy;
 }
 long long wall_clock_time()
 {
@@ -150,42 +146,38 @@ int main()
     r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
     {
-        // Step 1: speculate no collision happen, get new pos & v.
-        for(i=0; i<N; i++)
-        {
-            particles[i].x_n = particles[i].x + particles[i].vx;
-            particles[i].y_n = particles[i].y + particles[i].vy;
-            // printf("[Debug:pos_n] %d %10.8f %10.8f\n",i, particles[i].x_n, particles[i].y_n);
-        }
-        // Step 2: find all possible collision independently. fill colli_mat and colli_time.
+        // Step 1: find all possible collision independently. fill colli_mat and colli_time.
+        double x_n,y_n;
         cnt = 0;
         real_colli = 0;
         
         for(i=0; i<N; i++)
         {
             P_a = particles+i;
+            x_n = P_a->x + P_a->vx;
+            y_n = P_a->y + P_a->vy;
             //Case 1: collision with wall
             ///////////////
             lambda_1 = lambda_2 = 2;
             wall_colli = 0;
             // printf("[Debug:before_colli] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
-            if(P_a->x_n<r)
+            if(x_n<r)
             {
                 lambda_1 = (r - P_a->x) / P_a->vx;
                 wall_colli = 1;
             }
-            else if(P_a->x_n>bnd_far)
+            else if(x_n>bnd_far)
             {
                 lambda_1 = (bnd_far - P_a->x) / P_a->vx;
                 wall_colli = 1;
             }
 
-            if(P_a->y_n<r)
+            if(y_n<r)
             {
                 lambda_2 = (r - P_a->y) / P_a->vy;
                 wall_colli = 1;
             }
-            else if(P_a->y_n>bnd_far)
+            else if(y_n>bnd_far)
             {
                 lambda_2 = (bnd_far - P_a->y) / P_a->vy;
                 wall_colli = 1;
@@ -305,23 +297,24 @@ int main()
                 P_a = particles + colli->pb;
                 P_a->vx = -1*P_a->vx;
                 P_a->vy = -1*P_a->vy;
-                P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
-                P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy; 
+                P_a->x = P_a->x+(1-2*colli->time)*P_a->vx;
+                P_a->y = P_a->y+(1-2*colli->time)*P_a->vy;
                 bound_pos(P_a);
             }
             else if(colli->pa==-2)//  X wall colli;
             {
                 P_a = particles + colli->pb;
                 P_a->vx = -1*P_a->vx;
-                P_a->x_n = P_a->x+(1-2*colli->time)*P_a->vx;
+                P_a->x = P_a->x+(1-2*colli->time)*P_a->vx;
+                P_a->y = P_a->y+P_a->vy;
                 bound_pos(P_a);
             }
             else if(colli->pa==-3)// Y wall colli;
             {
                 P_a = particles + colli->pb;
                 P_a->vy = -1*P_a->vy;
-                P_a->y_n = P_a->y+(1-2*colli->time)*P_a->vy;
-                // printf("[Debug:Y wall Colli] Pa: %10.8f %10.8f\n", P_a->x_n,P_a->y_n);
+                P_a->y = P_a->y+(1-2*colli->time)*P_a->vy;
+                P_a->x = P_a->x+P_a->vx;
                 bound_pos(P_a);
             }
             else // P-P colli;
@@ -331,12 +324,12 @@ int main()
                 // if two particles coincide at the exact same coordinates from the start of a time step, ignore it (no normal direction)
                 // if(colli->time==0 && P_a->x==P_b->x && P_a->y==P_b->y)
                 //     continue;
-                P_a->x_n = P_a->x + colli->time*P_a->vx;
-                P_a->y_n = P_a->y + colli->time*P_a->vy;
-                P_b->x_n = P_b->x + colli->time*P_b->vx;
-                P_b->y_n = P_b->y + colli->time*P_b->vy;
-                Dx = P_b->x_n - P_a->x_n;
-                Dy = P_b->y_n - P_a->y_n;
+                P_a->x = P_a->x + colli->time*P_a->vx;
+                P_a->y = P_a->y + colli->time*P_a->vy;
+                P_b->x = P_b->x + colli->time*P_b->vx;
+                P_b->y = P_b->y + colli->time*P_b->vy;
+                Dx = P_b->x - P_a->x;
+                Dy = P_b->y - P_a->y;
                 Delta = 1 - colli->time;
                 /* To reduce var: 
                  dx1: nv1; dy1: tv1; 
@@ -356,11 +349,11 @@ int main()
                     P_b->vy = (dx1*Dy+dy2*Dx)/DDpDD;
                 }
                 // Update position
-                P_a->x_n = P_a->x_n + Delta*P_a->vx;
-                P_a->y_n = P_a->y_n + Delta*P_a->vy;
+                P_a->x = P_a->x + Delta*P_a->vx;
+                P_a->y = P_a->y + Delta*P_a->vy;
                 bound_pos(P_a);
-                P_b->x_n = P_b->x_n + Delta*P_b->vx;
-                P_b->y_n = P_b->y_n + Delta*P_b->vy;
+                P_b->x = P_b->x + Delta*P_b->vx;
+                P_b->y = P_b->y + Delta*P_b->vy;
                 bound_pos(P_b);
                 //
             }
@@ -369,8 +362,11 @@ int main()
         for(i=0;i<N;i++)
         {
             P_a = particles+i;
-            P_a->x = P_a->x_n;
-            P_a->y = P_a->y_n;
+            if(!colli_mat[i])
+            {
+                P_a->x = P_a->x + P_a->vx;
+                P_a->y = P_a->y + P_a->vy;
+            }
             colli_mat[i] = 0;
         }
         // To Output Result:

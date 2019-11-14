@@ -10,7 +10,6 @@
 #include "timer.h"
 
 #define RAND01 (rand()%2)
-#define T_NUM 4
 double eps = 1e-10;
 
 typedef struct
@@ -18,9 +17,12 @@ typedef struct
     double x;
     double y;
     double vx;
-    double vy;
+    double vy;   
     int colli_p;
     int colli_w;
+    // Speculative pts
+    /////////////////
+
 }  Particle;
 typedef struct
 {
@@ -68,10 +70,22 @@ void bound_pos(Particle *p)
     p->x = p->x - tx*p->vx;
     p->y = p->y - ty*p->vy;
 }
-
+long long wall_clock_time()
+{
+#ifdef LINUX
+    struct timespec tp;
+    clock_gettime(CLOCK_REALTIME, &tp);
+    return (long long)(tp.tv_nsec + (long long)tp.tv_sec * 1000000000ll);
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (long long)(tv.tv_usec * 1000 + (long long)tv.tv_sec * 1000000000ll);
+#endif
+}
 int main()
 {
     StartTimer();
+    //srand(0);
     srand((unsigned)time(NULL));
     // freopen("./inputs.txt","r",stdin);
     // freopen("./outputs.txt","w",stdout);
@@ -79,7 +93,8 @@ int main()
     Particle *particles, *P_a, *P_b;
     particles = (Particle *)malloc(N * sizeof(Particle));
     Collision *colli;
-    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far, time1, time2,threads;
+    int i =0,j, t, idx, cnt, real_colli, wall_colli, output=0, bnd_far;
+    // long long time1, time2;
     double x, y, vx, vy, lambda, lambda_1, lambda_2, time, r_sq_4;
     double dx1, dx2, dy1, dy2, Dx, Dy, DDpDD, dDpdD, dDmdD, Delta;
     bnd_far = L-r;
@@ -98,8 +113,7 @@ int main()
     }
     if(i==0)
     {
-//#pragma omp parallel for private(P_a)
-        for(i=0;i<N;i++)
+        for(;i<N;i++)
         {
             P_a = particles + i;
             P_a->x = doubleRand(r,bnd_far);
@@ -117,8 +131,8 @@ int main()
     }
     // Print initial position
     for(i=0; i<N; i++)
-        printf("0 %d %10.8lf %10.8lf %10.8lf %10.8lf\n", i,
-               particles[i].x, particles[i].y, particles[i].vx, particles[i].vy);
+        printf("0 %d %10.8lf %10.8lf %10.8lf %10.8lf\n", i, 
+                    particles[i].x, particles[i].y, particles[i].vx, particles[i].vy);
     // Naive Method
     /* Basic Idea:
     1. Build collision table (N+1)x(N+1), N is the wall. To check whether the collision happens.
@@ -126,10 +140,11 @@ int main()
     🎯
     */
     int *colli_mat = (int *)malloc(N*sizeof(int));
+    memset(colli_mat,0, N*sizeof(int));
     Collision *colli_time = (Collision*)malloc(N*(N+1)/2*sizeof(Collision));
     int *colli_queue = (int *)malloc(N*sizeof(int));
     // Start sim
-    // time1 = clock();
+    // time1 = wall_clock_time();
     r_sq_4 = 4*r*r;
     for(t=0;t<S;t++)
     {
@@ -137,11 +152,9 @@ int main()
         double x_n,y_n;
         cnt = 0;
         real_colli = 0;
-        memset(colli_mat,0, N*sizeof(int));
-        //start parallelism
+        
         for(i=0; i<N; i++)
         {
-            threads=omp_get_num_threads();
             P_a = particles+i;
             x_n = P_a->x + P_a->vx;
             y_n = P_a->y + P_a->vy;
@@ -171,56 +184,53 @@ int main()
                 lambda_2 = (bnd_far - P_a->y) / P_a->vy;
                 wall_colli = 1;
             }
-
+            // printf("[Debug:lambda] %10.8f %10.8f\n",lambda_1, lambda_2);
+            
             if(wall_colli)
             {
                 // printf("[Debug:Colli_wall] %d %10.8f %10.8f\n",i,P_a->x_n,P_a->y_n);
-                int count=cnt++;
-                colli_time[count].pb = i;  //exchange pa,pb here to ensure that pa<pb
+                colli_time[cnt].pb = i;  //exchange pa,pb here to ensure that pa<pb
                 lambda = lambda_1-lambda_2;
-                if(fabs(lambda)<eps) // Cornor collision!
+                if(lambda==0) // Cornor collision!
                 {
-                    colli_time[count].pa = -1; // -1 to present this case.
-                    colli_time[count].time = lambda_1;
+                    colli_time[cnt].pa = -1; // -1 to present this case.
+                    colli_time[cnt].time = lambda_1;
                 }
                 else if(lambda<0) // x wall collision!
                 {
-                    colli_time[count].pa = -2; // -2 to present this case.
-                    colli_time[count].time = lambda_1;
+                    colli_time[cnt].pa = -2; // -2 to present this case.
+                    colli_time[cnt].time = lambda_1;
                 }
                 else if(lambda>0) // y wall collision!
                 {
-                    colli_time[count].pa = -3; // -3 to present this case.
-                    colli_time[count].time = lambda_2;
+                    colli_time[cnt].pa = -3; // -3 to present this case.
+                    colli_time[cnt].time = lambda_2;
                 }
+                // if(colli_time[cnt].time < 10e-8) // && colli_time[cnt].time > -MinDec)
+                //     colli_time[cnt].time = 0;
+                cnt++;
             }
             ///////////////
-#pragma omp parallel for shared(cnt,colli_time,particles,P_a) private(dx1,dy1,P_b,lambda_1,\
-                lambda_2,lambda,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD) schedule(dynamic)
             for(j=i+1; j<N; j++)
             {
                 P_b = particles+j;
                 dx1 = P_b->x - P_a->x;
                 dy1 = P_b->y - P_a->y;
-                //early detection
+                // Early detection
                 Dx = P_b->vx - P_a->vx;
                 Dy = P_b->vy - P_a->vy;
                 dDpdD = dx1*Dx + dy1*Dy;
                 if(dDpdD>=0) // To judge the right direction
                     continue;
-                // Case 2: overlap at startup, not counting it as collision
+                // Case 2: overlap at startup:
                 ////////////////
                 Delta = dx1*dx1 + dy1*dy1;
                 if(Delta - r_sq_4<=0 && Delta!=0)
                 {
-                    int count;
-#pragma omp critical
-                    {
-                        count=cnt++;
-                    }
-                    colli_time[count].time = 0;
-                    colli_time[count].pa = i;
-                    colli_time[count].pb = j; // pa always smaller than pb
+                    colli_time[cnt].time = 0.0;
+                    colli_time[cnt].pa = i;
+                    colli_time[cnt].pb = j; // pa always smaller than pb
+                    cnt++;
                     continue; // no need to further detect.
                 }
                 ////////////////
@@ -236,26 +246,29 @@ int main()
                 // printf("[Debug:lambda]: %f\n", lambda);
                 if(lambda<1)
                 {
-                    int count;
-#pragma omp critical
-                    {
-                        count=cnt++;
-                    }
-                    colli_time[count].time = lambda;
-                    colli_time[count].pa = i;
-                    colli_time[count].pb = j;
+                    colli_time[cnt].time = lambda;
+                    colli_time[cnt].pa = i;
+                    colli_time[cnt].pb = j;
+                    cnt++;
                 }
                 ////////////////
             }
         }
         // Step 3: sort collision table and process collision
         // Sort collision
+        // printf("[Debug:num]: %d\n",cnt);
         qsort(colli_time, cnt, sizeof(Collision), compare);
 
         // Filter out true collision.
         for(i=0;i<cnt;i++)
         {
             colli = colli_time+i;
+            /////
+            // if(1 && (colli->pa == 0||colli->pb==0))
+            // {
+            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            // }
+            /////
             if(colli->pa<0){ //wall collision
                 if(!colli_mat[colli->pb])
                 {
@@ -277,8 +290,6 @@ int main()
             }
         }
         // Now let's see momentum; Potential improvements: separate diff case for diff thread
-#pragma omp parallel for shared(real_colli,colli_time,colli_queue,particles)\
-                private(colli,P_a,P_b,Dx,Dy,Delta,dx1,dy1,dx2,dy2,DDpDD)
         for(i=0;i<real_colli;i++)
         {
             colli = colli_time + colli_queue[i];
@@ -312,7 +323,7 @@ int main()
             {
                 P_a = particles + colli->pa;
                 P_b = particles + colli->pb;
-                // // if two particles coincide at the exact same coordinates from the start of a time step, ignore it (no normal direction)
+                // if two particles coincide at the exact same coordinates from the start of a time step, ignore it (no normal direction)
                 // if(colli->time==0 && P_a->x==P_b->x && P_a->y==P_b->y)
                 //     continue;
                 P_a->x = P_a->x + colli->time*P_a->vx;
@@ -322,14 +333,14 @@ int main()
                 Dx = P_b->x - P_a->x;
                 Dy = P_b->y - P_a->y;
                 Delta = 1 - colli->time;
-                /* To reduce var:
-                 dx1: nv1; dy1: tv1;
+                /* To reduce var: 
+                 dx1: nv1; dy1: tv1; 
                  dx2: nv2; dy2: tv2;
                 */
                 dx1 = Dx*P_a->vx + Dy*P_a->vy;
-                dy1 = Dx*P_a->vy - Dy*P_a->vx;
+                dy1 = Dx*P_a->vy - Dy*P_a->vx; 
                 dx2 = Dx*P_b->vx + Dy*P_b->vy;
-                dy2 = Dx*P_b->vy - Dy*P_b->vx;
+                dy2 = Dx*P_b->vy - Dy*P_b->vx; 
                 DDpDD = Dx*Dx + Dy*Dy;
                 if(DDpDD!=0)
                 {
@@ -346,10 +357,10 @@ int main()
                 P_b->x = P_b->x + Delta*P_b->vx;
                 P_b->y = P_b->y + Delta*P_b->vy;
                 bound_pos(P_b);
+                //
             }
         }
         // Safe update
-#pragma omp parallel for private(P_a)
         for(i=0;i<N;i++)
         {
             P_a = particles+i;
@@ -364,15 +375,15 @@ int main()
         if(output)
         {
             for(i=0; i<N; i++)
-                printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf\n",t+1, i,
-                       particles[i].x, particles[i].y, particles[i].vx, particles[i].vy);
+                printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf\n",t+1, i, 
+                    particles[i].x, particles[i].y, particles[i].vx, particles[i].vy);
         }
     }
     for(i=0; i<N; i++)
-        printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i,
-               particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
-               particles[i].colli_p, particles[i].colli_w);
-
+        printf("%d %d %10.8lf %10.8lf %10.8lf %10.8lf %d %d\n",S, i, 
+                particles[i].x, particles[i].y, particles[i].vx, particles[i].vy,
+                particles[i].colli_p, particles[i].colli_w);
+                
     double exec_time=GetTimer();
     printf("Time elapsed: %lf ms",exec_time);
 
