@@ -35,10 +35,13 @@ typedef struct
     double time;
 } Collision;
 
-int n, l, r, s, bnd_far, r_sq_4, num_cmp;
+int n, l, r, s, bnd_far, r_sq_4, num_cmp, count;
 int num_slave, myid, nprocs, slave_id, offset, send_size,
-    chunk_size, last_chunk_size, dst_id, num_chunk_cmp;
+    chunk_size, last_chunk_size, dst_id;
 Particle *particles, *P_a, *P_b;
+Collision *colli_time, *colli;
+
+MPI_Datatype Particle_Type, Colli_Type;
 
 #define MASTER_ID 0
 
@@ -94,57 +97,125 @@ void bound_pos(Particle *p)
     p->y = p->y - ty*p->vy;
 }
 
-void check_pp_colli(int offset)
+void check_wall_colli(int chunk_idx, int num_item)
 {
-    // get kernel idx
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int cnt;
-    double dx1, dy1, Delta, Dx, Dy, dDpdD, dDmdD, DDpDD, lambda;
-    particle_t *P_a, *P_b;
-    for(;i<num_cmp;i+=offset)
+    double lambda_1, lambda_2, lambda;
+    int i, wall_colli;
+    particle_t *P_a;
+    double x_n, y_n;
+    int offset = chunk_idx * chunk_size;
+    for(i=0; i<num_item; i++)
     {
-        P_a = particles + pa_idx[i];
-        P_b = particles + pb_idx[i];
-        dx1 = P_b->x - P_a->x;
-        dy1 = P_b->y - P_a->y;
-        // early stop
-        Dx = P_b->vx - P_a->vx;
-        Dy = P_b->vy - P_a->vy;
-        dDpdD = dx1*Dx + dy1*Dy;
-        if(dDpdD<0) // To ensure the right direction
+        P_a = particles + i + offset;
+        x_n = P_a->x + P_a->vx;
+        y_n = P_a->y + P_a->vy;
+        //Case 1: collision with wall
+        ///////////////
+        lambda_1 = lambda_2 = 2;
+        wall_colli = 0;
+        if(x_n<r)
         {
-            // Case 2: overlap at startup:
-            ////////////////
-            Delta = dx1*dx1 + dy1*dy1;
-            if(Delta - r_sq_4<=0 && Delta!=0)
+            lambda_1 = (r - P_a->x) / P_a->vx;
+            wall_colli = 1;
+        }
+        else if(x_n>bnd_far)
+        {
+            lambda_1 = (bnd_far - P_a->x) / P_a->vx;
+            wall_colli = 1;
+        }
+
+        if(y_n<r)
+        {
+            lambda_2 = (r - P_a->y) / P_a->vy;
+            wall_colli = 1;
+        }
+        else if(y_n>bnd_far)
+        {
+            lambda_2 = (bnd_far - P_a->y) / P_a->vy;
+            wall_colli = 1;
+        }
+        if(wall_colli)
+        {
+            count++; 
+            colli_time[count].pb = i;
+            lambda = lambda_1-lambda_2;
+            if(fabs(lambda)<eps) // Cornor collision!
             {
-                cnt=atomicAdd(&count, 1);
-                colli_time[cnt].time = 0.0;
-                colli_time[cnt].pa = pa_idx[i];
-                colli_time[cnt].pb = pb_idx[i];
+                colli_time[count].pa = -1; // -1 to present this case.
+                colli_time[count].time = lambda_1;
             }
-            ////////////////
-            else
+            else if(lambda<0) // x wall collision!
             {
-                // Case 3: Normal collision case
+                colli_time[count].pa = -2; // -2 to present this case.
+                colli_time[count].time = lambda_1;
+            }
+            else if(lambda>0) // y wall collision!
+            {
+                colli_time[count].pa = -3; // -3 to present this case.
+                colli_time[count].time = lambda_2;
+            }
+        }
+        ///////////////
+    }
+}
+
+void check_pp_colli(chunk_idx_A, chunk_idx_B, num_item_A, num_item_B)
+{
+    double dx1, dy1, Delta, Dx, Dy, dDpdD, dDmdD, DDpDD, lambda;
+    int offset_A, offset_B, i, j;
+    offset_A = chunk_idx_A * chunk_size;
+    offset_B = chunk_idx_B * chunk_size;
+    for(i=0; i<num_item_A; i++)
+    {
+        if(chunk_idx_A == chunk_idx_B)
+            j = i + 1;
+        else
+            j = 0;
+        for(; j<num_item_B; j++)
+        {
+            P_a = particles + offset_A + i;
+            P_b = particles + offset_B + j;
+            dx1 = P_b->x - P_a->x;
+            dy1 = P_b->y - P_a->y;
+            // early stop
+            Dx = P_b->vx - P_a->vx;
+            Dy = P_b->vy - P_a->vy;
+            dDpdD = dx1*Dx + dy1*Dy;
+            if(dDpdD<0) // To ensure the right direction
+            {
+                // Case 2: overlap at startup:
                 ////////////////
-                DDpDD = Dx*Dx + Dy*Dy;
-                dDmdD = dx1*Dy - dy1*Dx;
-                Delta = r_sq_4*DDpDD - dDmdD*dDmdD;
-                if(Delta>0)
+                Delta = dx1*dx1 + dy1*dy1;
+                if(Delta - r_sq_4<=0 && Delta!=0)
                 {
-                    Delta = sqrt(Delta);
-                    lambda = (-dDpdD - Delta)/DDpDD;
-                    // printf("[Debug:lambda]: %f\n", lambda);
-                    if(lambda<1)
-                    {
-                        cnt=atomicAdd(&count, 1);
-                        colli_time[cnt].time = lambda;
-                        colli_time[cnt].pa = pa_idx[i];
-                        colli_time[cnt].pb = pb_idx[i];
-                    }
+                    count++;
+                    colli_time[count].time = 0.0;
+                    colli_time[count].pa = pa_idx[i];
+                    colli_time[count].pb = pb_idx[i];
                 }
                 ////////////////
+                else
+                {
+                    // Case 3: Normal collision case
+                    ////////////////
+                    DDpDD = Dx*Dx + Dy*Dy;
+                    dDmdD = dx1*Dy - dy1*Dx;
+                    Delta = r_sq_4*DDpDD - dDmdD*dDmdD;
+                    if(Delta>0)
+                    {
+                        Delta = sqrt(Delta);
+                        lambda = (-dDpdD - Delta)/DDpDD;
+                        // printf("[Debug:lambda]: %f\n", lambda);
+                        if(lambda<1)
+                        {
+                            count++;
+                            colli_time[count].time = lambda;
+                            colli_time[count].pa = pa_idx[i];
+                            colli_time[count].pb = pb_idx[i];
+                        }
+                    }
+                    ////////////////
+                }
             }
         }
     }
@@ -221,6 +292,19 @@ void gen_parti_type(MPI_Datatype *Type_ptr)
     MPI_Type_commit(Type_ptr);
 }
 
+void gen_colli_type(MPI_Datatype *Type_ptr)
+{
+    MPI_Datatype type[3] = { MPI_INT, MPI_INT, MPI_DOUBLE };
+    int blocklen[3] = { 1, 1, 1 };
+    MPI_Aint disp[3];
+
+    disp[0] = offsetof(Collision, pa);
+    disp[1] = offsetof(Collision, pb);
+    disp[2] = offsetof(Collision, time);
+    MPI_Type_create_struct(3, blocklen, disp, type, Type_ptr);
+    MPI_Type_commit(Type_ptr);
+}
+
 void print_particles(int step)
 {
     int i;
@@ -263,7 +347,7 @@ void master()
     MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
     MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
     ///////////
-    int i, j, k, step, cnt=0;
+    int i, j, k, step;
     double x, y, vx, vy;
     simulation_mode_t mode;
     int send_mat[num_slave][nprocs];
@@ -271,7 +355,7 @@ void master()
     gen_comm_mat(send_mat, NULL, NULL);
 
     bnd_far = l - r;
-    num_cmp = n * (n-1) / 2;
+    num_cmp = n * (n+1) / 2;
     chunk_size = (n-1) / num_slave + 1;
     last_chunk_size = n % chunk_size;
     last_chunk_size = last_chunk_size?last_chunk_size:chunk_size;
@@ -295,8 +379,7 @@ void master()
     }
     mode = strcmp(mode_buf, "print") == 0 ? MODE_PRINT : MODE_PERF;
     
-    MPI_Datatype Particle_Type;
-    gen_parti_type(&Particle_Type);
+    colli_time = (Collision *)malloc(num_cmp *sizeof(Collision));
     print_particles(0);
     /*
         start sim
@@ -323,25 +406,28 @@ void slave()
     MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
     MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
 
-    int i, j, k, step, cnt=0, num_chunk;
+    int i, j, k, step, num_chunk, major_chunk, num_chunk_cmp;
+    num_chunk_cmp = num_slave * (num_slave + 1) / 2;
     num_chunk_cmp = (num_chunk_cmp-1) / num_slave +1;
-    int pa_idx[num_chunk_cmp], pb_idx[num_chunk_cmp];
+    int chunk_map[num_slave], chunk_size_list[num_chunk_cmp],
+        pa_idx[num_chunk_cmp], pb_idx[num_chunk_cmp];
     int send_mat[num_slave][nprocs];
     MPI_Status Stat;
-    memset(send_mat[0] ,0, num_slave*nprocs*sizeof(int));
+    memset(send_mat[0], 0, num_slave*nprocs*sizeof(int));
+    memset(chunk_map, -1, num_slave*sizeof(int));
     num_chunk_cmp = gen_comm_mat(send_mat, pa_idx, pb_idx);
 
     bnd_far = l - r;
     r_sq_4 = r * r * 4;
-    num_cmp = n * (n-1) / 2;
     chunk_size = (n-1) / num_slave + 1;
     num_chunk = send_mat[slave_id][num_slave];
     last_chunk_size = n % chunk_size;
     last_chunk_size = last_chunk_size?last_chunk_size:chunk_size;
+    n = (num_chunk - 1) * chunk_size + last_chunk_size;
+    num_cmp = n * (n+1) / 2;
     particles = (Particle *)malloc(num_chunk * chunk_size * sizeof(Particle));
+    colli_time = (Collision *)malloc(num_cmp *sizeof(Collision));
 
-    MPI_Datatype Particle_Type;
-    gen_parti_type(&Particle_Type);
     /*
         start sim
     */
@@ -353,10 +439,22 @@ void slave()
             offset = chunk_size * i;
             send_size = send_mat[slave_id][i]==num_slave-1?last_chunk_size:chunk_size;
             MPI_Recv(particles+offset, send_size, Particle_Type, MASTER_ID, i, MPI_COMM_WORLD, &Stat);
+            if(send_mat[slave_id][i]==slave_id)
+            {
+                major_chunk = i;
+            }
+            chunk_map[send_mat[slave_id][i]] = i;
+            chunk_size_list[i] = send_size;
         }
         // 
-        check_wall_colli();
-        check_pp_colli();
+        count = 0;
+        check_wall_colli(major_chunk, chunk_size_list[major_chunk]);
+        for(k=0; k<num_chunk_cmp; k++)
+        {
+            i = pa_idx[k];
+            j = pb_idx[k];
+            check_pp_colli(chunk_map[i], chunk_map[j], chunk_size_list[i], chunk_size_list[j]);
+        }
     }
 
 
@@ -375,8 +473,9 @@ int main(int argc, char ** argv)
         fprintf(stderr, "#Proc >= 2 !\n");
     }
     num_slave = nprocs - 1;
-    num_chunk_cmp = num_slave * (num_slave + 1) / 2;
     slave_id = myid - 1;
+    gen_parti_type(&Particle_Type);
+    gen_colli_type(&Colli_Type);
     /*
     Master-Slave Pattern
     */
