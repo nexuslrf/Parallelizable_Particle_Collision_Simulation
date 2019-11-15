@@ -20,6 +20,7 @@ typedef enum {
 
 typedef struct
 {
+    int id;
     double x;
     double y;
     double vx;
@@ -73,6 +74,7 @@ void randomise_particles()
     int i;
     for(i=0; i<n; i++)
     {
+        particles[i].id = i;
         particles[i].x = doubleRand(r,bnd_far);
         particles[i].y = doubleRand(r,bnd_far);
         particles[i].vx = (1 - 2*RAND01)*doubleRand(l/(double)8.0/r,l/(double)4.0);
@@ -101,7 +103,6 @@ void check_wall_colli(int chunk_idx, int num_item)
 {
     double lambda_1, lambda_2, lambda;
     int i, wall_colli;
-    particle_t *P_a;
     double x_n, y_n;
     int offset = chunk_idx * chunk_size;
     for(i=0; i<num_item; i++)
@@ -137,7 +138,7 @@ void check_wall_colli(int chunk_idx, int num_item)
         if(wall_colli)
         {
             count++; 
-            colli_time[count].pb = i;
+            colli_time[count].pb = P_b->id;
             lambda = lambda_1-lambda_2;
             if(fabs(lambda)<eps) // Cornor collision!
             {
@@ -159,12 +160,13 @@ void check_wall_colli(int chunk_idx, int num_item)
     }
 }
 
-void check_pp_colli(chunk_idx_A, chunk_idx_B, num_item_A, num_item_B)
+void check_pp_colli(int chunk_idx_A, int chunk_idx_B, int num_item_A, int num_item_B)
 {
     double dx1, dy1, Delta, Dx, Dy, dDpdD, dDmdD, DDpDD, lambda;
     int offset_A, offset_B, i, j;
     offset_A = chunk_idx_A * chunk_size;
     offset_B = chunk_idx_B * chunk_size;
+    // printf("ID[%d] #Item_A: %d #Item_B: %d\n", myid, num_item_A, num_item_B);
     for(i=0; i<num_item_A; i++)
     {
         if(chunk_idx_A == chunk_idx_B)
@@ -175,6 +177,7 @@ void check_pp_colli(chunk_idx_A, chunk_idx_B, num_item_A, num_item_B)
         {
             P_a = particles + offset_A + i;
             P_b = particles + offset_B + j;
+            // printf("ID[%d] P_A: %d P_B: %d\n", myid, offset_A+i, offset_B+j);
             dx1 = P_b->x - P_a->x;
             dy1 = P_b->y - P_a->y;
             // early stop
@@ -190,8 +193,8 @@ void check_pp_colli(chunk_idx_A, chunk_idx_B, num_item_A, num_item_B)
                 {
                     count++;
                     colli_time[count].time = 0.0;
-                    colli_time[count].pa = pa_idx[i];
-                    colli_time[count].pb = pb_idx[i];
+                    colli_time[count].pa = P_a->id;
+                    colli_time[count].pb = P_b->id;
                 }
                 ////////////////
                 else
@@ -210,14 +213,100 @@ void check_pp_colli(chunk_idx_A, chunk_idx_B, num_item_A, num_item_B)
                         {
                             count++;
                             colli_time[count].time = lambda;
-                            colli_time[count].pa = pa_idx[i];
-                            colli_time[count].pb = pb_idx[i];
+                            colli_time[count].pa = P_a->id;
+                            colli_time[count].pb = P_b->id;
                         }
                     }
                     ////////////////
                 }
             }
         }
+    }
+}
+
+void update_particle(Particle* parti, int num_item)
+{
+    for(i=0; i<num_item; i++)
+    {
+        P_a = parti + i;
+        if(!colli_mat[i])
+        {
+            P_a->x = P_a->x + P_a->vx;
+            P_a->y = P_a->y + P_a->vy;
+        }
+        else
+            colli_mat[i] = 0;
+    }
+}
+
+void proc_collision(Collision* colli)
+{
+    double Dx ,Dy, Delta, dx1, dy1, dx2, dy2, DDpDD;
+    if(colli->pa==-1) // Cornor colli;
+    {
+        P_a = particles + colli->pb;
+        P_a->vx = -1*P_a->vx;
+        P_a->vy = -1*P_a->vy;
+        P_a->x = P_a->x+(1-2*colli->time)*P_a->vx;
+        P_a->y = P_a->y+(1-2*colli->time)*P_a->vy;
+        P_a->colli_w++;
+        bound_pos(P_a);
+    }
+    else if(colli->pa==-2)//  X wall colli;
+    {
+        P_a = particles + colli->pb;
+        P_a->vx = -1*P_a->vx;
+        P_a->x = P_a->x+(1-2*colli->time)*P_a->vx;
+        P_a->y = P_a->y+P_a->vy;
+        P_a->colli_w++;
+        bound_pos(P_a);
+    }
+    else if(colli->pa==-3)// Y wall colli;
+    {
+        P_a = particles + colli->pb;
+        P_a->vy = -1*P_a->vy;
+        P_a->y = P_a->y+(1-2*colli->time)*P_a->vy;
+        P_a->x = P_a->x+P_a->vx;
+        P_a->colli_w++;
+        bound_pos(P_a);
+    }
+    else // P-P colli;
+    {
+        P_a = particles + colli->pa;
+        P_b = particles + colli->pb;
+        P_a->colli_p++;
+        P_b->colli_p++;
+        P_a->x = P_a->x + colli->time*P_a->vx;
+        P_a->y = P_a->y + colli->time*P_a->vy;
+        P_b->x = P_b->x + colli->time*P_b->vx;
+        P_b->y = P_b->y + colli->time*P_b->vy;
+        Dx = P_b->x - P_a->x;
+        Dy = P_b->y - P_a->y;
+        Delta = 1 - colli->time;
+        /* To reduce var:
+        dx1: nv1; dy1: tv1;
+        dx2: nv2; dy2: tv2;
+        */
+        dx1 = Dx*P_a->vx + Dy*P_a->vy;
+        dy1 = Dx*P_a->vy - Dy*P_a->vx;
+        dx2 = Dx*P_b->vx + Dy*P_b->vy;
+        dy2 = Dx*P_b->vy - Dy*P_b->vx;
+        DDpDD = Dx*Dx + Dy*Dy;
+        if(DDpDD!=0)
+        {
+            // Update velocities
+            P_a->vx = (dx2*Dx-dy1*Dy)/DDpDD;
+            P_a->vy = (dx2*Dy+dy1*Dx)/DDpDD;
+            P_b->vx = (dx1*Dx-dy2*Dy)/DDpDD;
+            P_b->vy = (dx1*Dy+dy2*Dx)/DDpDD;
+        }
+        // Update position
+        P_a->x = P_a->x + Delta*P_a->vx;
+        P_a->y = P_a->y + Delta*P_a->vy;
+        bound_pos(P_a);
+        P_b->x = P_b->x + Delta*P_b->vx;
+        P_b->y = P_b->y + Delta*P_b->vy;
+        bound_pos(P_b);
     }
 }
 
@@ -277,18 +366,18 @@ int gen_comm_mat(int (*send_mat)[nprocs], int* pa_idx, int* pb_idx)
 void gen_parti_type(MPI_Datatype *Type_ptr)
 {
     MPI_Datatype type[6] = { 
-        MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, 
+        MPI_INT, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, MPI_DOUBLE, 
         MPI_INT, MPI_INT };
-    int blocklen[6] = { 1, 1, 1, 1, 1, 1 };
-    MPI_Aint disp[6];
-
-    disp[0] = offsetof(Particle, x);
-    disp[1] = offsetof(Particle, y);
-    disp[2] = offsetof(Particle, vx);
-    disp[3] = offsetof(Particle, vy);
-    disp[4] = offsetof(Particle, colli_p);
-    disp[5] = offsetof(Particle, colli_w);
-    MPI_Type_create_struct(6, blocklen, disp, type, Type_ptr);
+    int blocklen[7] = { 1, 1, 1, 1, 1, 1, 1 };
+    MPI_Aint disp[7];
+    disp[0] = offsetof(Particle, id);
+    disp[1] = offsetof(Particle, x);
+    disp[2] = offsetof(Particle, y);
+    disp[3] = offsetof(Particle, vx);
+    disp[4] = offsetof(Particle, vy);
+    disp[5] = offsetof(Particle, colli_p);
+    disp[6] = offsetof(Particle, colli_w);
+    MPI_Type_create_struct(7, blocklen, disp, type, Type_ptr);
     MPI_Type_commit(Type_ptr);
 }
 
@@ -347,10 +436,12 @@ void master()
     MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
     MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
     ///////////
-    int i, j, k, step;
+    int i, j, k, step, real_colli, extra_cnt;
     double x, y, vx, vy;
     simulation_mode_t mode;
     int send_mat[num_slave][nprocs];
+    int countbuf[nprocs];
+    Particle parti_buf;
     memset(send_mat[0] ,0, num_slave*nprocs*sizeof(int));
     gen_comm_mat(send_mat, NULL, NULL);
 
@@ -360,9 +451,11 @@ void master()
     last_chunk_size = n % chunk_size;
     last_chunk_size = last_chunk_size?last_chunk_size:chunk_size;
     particles = (Particle *)malloc(n * sizeof(Particle));
+    int colli_chunk_queue[num_slave][chunk_size], colli_mat[n];
     j = 0;
     while (scanf("%d %lf %lf %lf %lf", &i, &x, &y, &vx, &vy) != EOF) {
         j++;
+        particles[i].id = i;
         particles[i].x = x;
         particles[i].y = y;
         particles[i].vx = vx;
@@ -396,7 +489,80 @@ void master()
                 MPI_Send(particles+offset, send_size, Particle_Type, k+1, i, MPI_COMM_WORLD);
             }
         }
+        memset(colli_mat, 0, n*sizeof(int));
+        // printf("ID[%d] Start gathering!\n", myid);
+        MPI_Gather(&count, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        count = 0;
+        extra_cnt = 0;
+        for(i=1; i<num_slave+1; i++)
+        {
+            MPI_Recv(colli_time+count, countbuf[i], Colli_Type, i, i, MPI_COMM_WORLD, &Stat);
+            count += countbuf[i];
+        }
+        qsort(colli_time, count, sizeof(Collision), compare);
+        real_colli = find_real_collisions();
+        memset(countbuf, 0, nprocs*sizeof(int));
+        for(i=0;i<count;i++)
+        {
+            colli = colli_time+i;
+            ////
+            // if(1 && (colli->pa == 0||colli->pb==0))
+            // {
+            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            // }
+            ////
+            if(colli->pa<0){ //wall collision
+                if(!colli_mat[colli->pb])
+                {
+                    colli_mat[colli->pb] = 1;
+                    k = colli->pb / chunk_size;
+                    colli_chunk_queue[k][countbuf[k + 1]++]=i;
+                }
+            }
+            else if(!colli_mat[colli->pa]) // p-p collision
+            {
+                if(!colli_mat[colli->pb])
+                {
+                    colli_mat[colli->pa] = 1;
+                    colli_mat[colli->pb] = 1;
+                    k = colli->pa / chunk_size;
+                    colli_chunk_queue[k][countbuf[k + 1]++]=i;
+                    k = colli->pb / chunk_size;
+                    colli_chunk_queue[k][countbuf[k + 1]++]=i;
+                }
+            }
+        }
+        MPI_Scatter(countbuf, 1, MPI_INT, &count, 1 MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        for(i=0; i<num_slave; i++)
+        {
+            for(j=0; j<countbuf[i+1]; j++)
+            {
+                k = colli_chunk_queue[i][j];
+                MPI_Send(colli_time+j, 1, Colli_Type, i+1, i+1, MPI_COMM_WORLD);
+            }
+        }
+        MPI_Gather(&extra_cnt, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        offset = 0;
+        for(i=0;i<num_slave;i++)
+        {
+            send_size = i!=num_slave-1?chunk_size:last_chunk_size;
+            MPI_Recv(particles+offset, send_size, Particle_Type, i+1, i+1, MPI_COMM_WORLD, &Stat);
+            offset += chunk_size;
+        }
+        for(i=0;i<num_slave;i++)
+        {
+            for(j=0; j<countbuf[i+1]; j++)
+            {
+                MPI_Recv(&parti_buf, 1, Particle_Type, i+1, i+1, MPI_COMM_WORLD);
+                memcpy(particles+parti_buf.id, &parti_buf, sizeof(Particle));
+            }
+        }
+        if(mode==MODE_PRINT)
+            print_particles(step+1);
     }
+    print_statistics(s);
+    double exec_time=GetTimer();
+    printf("Time elapsed: %lf ms",exec_time);
 }
 
 void slave()
@@ -406,17 +572,17 @@ void slave()
     MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
     MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
 
-    int i, j, k, step, num_chunk, major_chunk, num_chunk_cmp;
+    int i, j, k, step, num_chunk, major_chunk, num_chunk_cmp, extra_cnt;
     num_chunk_cmp = num_slave * (num_slave + 1) / 2;
     num_chunk_cmp = (num_chunk_cmp-1) / num_slave +1;
     int chunk_map[num_slave], chunk_size_list[num_chunk_cmp],
         pa_idx[num_chunk_cmp], pb_idx[num_chunk_cmp];
     int send_mat[num_slave][nprocs];
+    int countbuf[nprocs];
     MPI_Status Stat;
     memset(send_mat[0], 0, num_slave*nprocs*sizeof(int));
     memset(chunk_map, -1, num_slave*sizeof(int));
     num_chunk_cmp = gen_comm_mat(send_mat, pa_idx, pb_idx);
-
     bnd_far = l - r;
     r_sq_4 = r * r * 4;
     chunk_size = (n-1) / num_slave + 1;
@@ -427,7 +593,9 @@ void slave()
     num_cmp = n * (n+1) / 2;
     particles = (Particle *)malloc(num_chunk * chunk_size * sizeof(Particle));
     colli_time = (Collision *)malloc(num_cmp *sizeof(Collision));
-
+    colli_mat = (int *)malloc(chunk_size * sizeof(int));
+    memset(colli_mat, 0, chunk_size * sizeof(int));
+    int extra_send[chunk_size];
     /*
         start sim
     */
@@ -447,19 +615,64 @@ void slave()
             chunk_size_list[i] = send_size;
         }
         // 
+        // printf("ID[%d] Start Detecting!\n", myid);
         count = 0;
+        extra_cnt = 0;
         check_wall_colli(major_chunk, chunk_size_list[major_chunk]);
+        // printf("ID[%d] Start P-P Detecting!\n", myid);
         for(k=0; k<num_chunk_cmp; k++)
         {
-            i = pa_idx[k];
-            j = pb_idx[k];
-            check_pp_colli(chunk_map[i], chunk_map[j], chunk_size_list[i], chunk_size_list[j]);
+            i = chunk_map[pa_idx[k]];
+            j = chunk_map[pb_idx[k]];
+            check_pp_colli(i, j, chunk_size_list[i], chunk_size_list[j]);
+        }
+        // printf("ID[%d] Start gathering!\n", myid);
+        MPI_Gather(&count, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        MPI_Send(colli_time, count, Colli_Type, MASTER_ID, myid, MPI_COMM_WORLD);
+        MPI_Scatter(countbuf, 1, MPI_INT, &count, 1 MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        for(i=0; i<count; i++)
+            MPI_Recv(colli_time+i, 1, Colli_Type, MASTER_ID, myid, MPI_COMM_WORLD);
+        for(k=0; k<count; k++)
+        {
+            colli = colli_time + k;
+            if(colli->pa<0) // wall
+            {
+                colli->pb = chunk_map[(colli->pb / chunk_size)] * chunk_size + colli->pb % chunk_size;
+                proc_collision(colli);
+            }
+            else
+            {
+                i = colli->pa / chunk_size;
+                j = colli->pb / chunk_size;
+                if(chunk_map[i]>=0 && chunk_map[j]>=0)
+                {
+                    colli->pa = chunk_map[i] * chunk_size + colli->pa % chunk_size;
+                    colli->pb = chunk_map[i] * chunk_size + colli->pb % chunk_size;
+                    if(i==slave_id)
+                    {
+                        extra_send[extra_cnt++] = colli->pb;
+                        colli_mat[colli->pa % chunk_size]=1;
+                    }
+                    else
+                    {
+                        extra_send[extra_cnt++] = colli->pa;
+                        colli_mat[colli->pb % chunk_size]=1;
+                    }
+                    proc_collision(colli);
+                }
+            }
+            update_particle(particles+major_chunk*chunk_size, chunk_size_list[major_chunk]);
+        }
+        MPI_Gather(&extra_cnt, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        offset = major_chunk * chunk_size;
+        MPI_Send(particles+offset, chunk_size_list[major_chunk], Particle_Type, myid, myid, MPI_COMM_WORLD);
+        for(i=0; i<extra_cnt; i++)
+        {
+            offset = extra_send[i];
+            MPI_Send(particles+offset, 1, Particle_Type, myid, myid, MPI_COMM_WORLD);
         }
     }
-
-
 }
-
 
 
 int main(int argc, char ** argv)
@@ -487,6 +700,9 @@ int main(int argc, char ** argv)
     {
         slave();
     }
+    free(particles);
+    free(colli_time);
+    free(colli_mat);
     MPI_Finalize();
     return 0;
 }
