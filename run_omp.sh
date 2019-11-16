@@ -11,6 +11,5 @@ echo ""
 ./run_prog < $input_file > outputs_${run_program}_${input_file}
 tail -n 2 outputs_${run_program}_${input_file}
 echo ""
-perf  ./collision_cuda < $input_file > outputs_${run_program}_${input_file}
-tail -n 2 outputs_${run_program}_${input_file}
-echo ""
+# perf stat -- ./collision < $input_file 
+# echo ""

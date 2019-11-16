@@ -13,3 +13,6 @@ run_mac.sh
 inputs.txt
 old/*
 tmp/*
+outputs_collision_seq_inputs_20.txt
+tmp.txt
+run_prog
