@@ -546,7 +546,7 @@ void master()
             for(j=0; j<countbuf[i+1]; j++)
             {
                 k = colli_chunk_queue[i][j];
-                MPI_Send(colli_time+j, 1, Colli_Type, i+1, i+1, MPI_COMM_WORLD);
+                MPI_Send(colli_time+k, 1, Colli_Type, i+1, i+1, MPI_COMM_WORLD);
             }
         }
         // printf("ID[%d] Gather extra_cnt!\n", myid);
@@ -647,7 +647,10 @@ void slave()
         MPI_Send(colli_time, count, Colli_Type, MASTER_ID, myid, MPI_COMM_WORLD);
         MPI_Scatter(countbuf, 1, MPI_INT, &count, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
         for(i=0; i<count; i++)
+        {
             MPI_Recv(colli_time+i, 1, Colli_Type, MASTER_ID, myid, MPI_COMM_WORLD, &Stat);
+            // printf("ID[%d] Colli[%d] %d %d %10.8f\n", myid, i, colli_time[i].pa, colli_time[i].pb, colli_time[i].time);
+        }
         for(k=0; k<count; k++)
         {
             colli = colli_time + k;
@@ -655,6 +658,7 @@ void slave()
             {
                 // printf("ID[%d] Colli Wall[%d]: %d\n", myid, k, colli->pb);
                 colli->pb = chunk_map[colli->pb / chunk_size] * chunk_size + colli->pb % chunk_size;
+                colli_mat[colli->pb % chunk_size]=1;
                 // printf("ID[%d] Colli Wall_X[%d]: %d \n", myid, k, (particles + colli->pb)->id);
                 proc_collision(colli);
             }
@@ -669,20 +673,21 @@ void slave()
                     colli->pb = chunk_map[i] * chunk_size + colli->pb % chunk_size;
                     // printf("ID[%d] Colli P-P_X[%d]: %d %d\n", myid, k, (particles + colli->pa)->id, (particles + colli->pb)->id);
                     if(i==slave_id)
-                    {
-                        extra_send[extra_cnt++] = colli->pb;
                         colli_mat[colli->pa % chunk_size]=1;
-                    }
                     else
-                    {
                         extra_send[extra_cnt++] = colli->pa;
+                    if(j==slave_id)
                         colli_mat[colli->pb % chunk_size]=1;
-                    }
+                    else
+                        extra_send[extra_cnt++] = colli->pb;
+
                     proc_collision(colli);
                 }
             }
-            update_particle(particles+major_chunk*chunk_size, chunk_size_list[major_chunk], colli_mat);
         }
+        update_particle(particles+major_chunk*chunk_size, chunk_size_list[major_chunk], colli_mat);
+        // print_particles(step+1);
+        // printf("ID[%d] extra cnt: %d\n", myid, extra_cnt);
         MPI_Gather(&extra_cnt, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
         offset = major_chunk * chunk_size;
         MPI_Send(particles+offset, chunk_size_list[major_chunk], Particle_Type, MASTER_ID, myid, MPI_COMM_WORLD);
