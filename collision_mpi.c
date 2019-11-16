@@ -156,7 +156,7 @@ void check_wall_colli(int chunk_idx, int num_item)
                 colli_time[count].pa = -3; // -3 to present this case.
                 colli_time[count].time = lambda_2;
             }
-            count++; 
+            count++;
         }
         ///////////////
     }
@@ -179,7 +179,6 @@ void check_pp_colli(int chunk_idx_A, int chunk_idx_B, int num_item_A, int num_it
         {
             P_a = particles + offset_A + i;
             P_b = particles + offset_B + j;
-            // printf("ID[%d] P_A: %d P_B: %d\n", myid, offset_A+i, offset_B+j);
             dx1 = P_b->x - P_a->x;
             dy1 = P_b->y - P_a->y;
             // early stop
@@ -331,7 +330,7 @@ Job_mat:                 Send_mat:
     [0, 0, 0, 4, 4], |       [0, 1, 0, 1, 1],
     [0, 0, 0, 0, 5]] |       [1, 0, 0, 1, 1]]
 */
-int gen_comm_mat(int (*send_mat)[nprocs], int* pa_idx, int* pb_idx)
+int gen_comm_mat(int (*send_mat)[nprocs], int (*job_mat)[num_slave], int* pa_idx, int* pb_idx)
 {
     int i, j, k, proc, cnt=0, job_cnt=0;
     int flag_mat[num_slave][num_slave];
@@ -342,6 +341,7 @@ int gen_comm_mat(int (*send_mat)[nprocs], int* pa_idx, int* pb_idx)
         for(i=0; i<k; i++)
         {
             proc = cnt % num_slave;
+            job_mat[i][j] = proc;
             if(!flag_mat[proc][i])
             {
                 flag_mat[proc][i] = 1;
@@ -440,22 +440,22 @@ void master()
     MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
     MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
     ///////////
-    int i, j, k, step, real_colli, extra_cnt;
+    int i, j, k, m, step, real_colli, extra_cnt;
     double x, y, vx, vy;
     simulation_mode_t mode;
-    int send_mat[num_slave][nprocs];
+    int send_mat[num_slave][nprocs], job_mat[num_slave][num_slave];
     int countbuf[nprocs];
     Particle parti_buf;
-    memset(send_mat[0] ,0, num_slave*nprocs*sizeof(int));
-    gen_comm_mat(send_mat, NULL, NULL);
+    memset(send_mat[0], 0, num_slave*nprocs*sizeof(int));
+    memset(job_mat[0], 0, num_slave*num_slave*sizeof(int));
+    gen_comm_mat(send_mat, job_mat, NULL, NULL);
 
     bnd_far = l - r;
     num_cmp = n * (n+1) / 2;
     chunk_size = (n-1) / num_slave + 1;
-    last_chunk_size = n % chunk_size;
-    last_chunk_size = last_chunk_size?last_chunk_size:chunk_size;
+    last_chunk_size = n - (num_slave - 1) * chunk_size;
     particles = (Particle *)malloc(n * sizeof(Particle));
-    int colli_chunk_queue[num_slave][chunk_size], colli_mat[n];
+    int colli_chunk_queue[num_slave][n], colli_mat[n];
     j = 0;
     while (scanf("%d %lf %lf %lf %lf", &i, &x, &y, &vx, &vy) != EOF) {
         j++;
@@ -512,12 +512,13 @@ void master()
         {
             colli = colli_time+k;
             ////
-            // if(1 && (colli->pa == 0||colli->pb==0))
+            // if(step==0) // && (colli->pa == 0||colli->pb==0))
             // {
-                // printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
             // }
             ////
-            if(colli->pa<0){ //wall collision
+            if(colli->pa<0)
+            { //wall collision
                 if(!colli_mat[colli->pb])
                 {
                     colli_mat[colli->pb] = 1;
@@ -532,10 +533,11 @@ void master()
                     colli_mat[colli->pa] = 1;
                     colli_mat[colli->pb] = 1;
                     i = colli->pa / chunk_size;
-                    colli_chunk_queue[i][countbuf[i + 1]++]=k;
                     j = colli->pb / chunk_size;
-                    if (i!=j)
-                        colli_chunk_queue[j][countbuf[j + 1]++]=k;
+                    m = job_mat[i][j];
+                    colli_chunk_queue[m][countbuf[m + 1]++]=k;
+                    // if (i!=j)
+                    //     colli_chunk_queue[j][countbuf[j + 1]++]=k;
                 }
             }
         }
@@ -588,26 +590,27 @@ void slave()
     int i, j, k, step, num_chunk, major_chunk, num_chunk_cmp, extra_cnt;
     num_chunk_cmp = num_slave * (num_slave + 1) / 2;
     num_chunk_cmp = (num_chunk_cmp-1) / num_slave +1;
-    int chunk_map[num_slave], chunk_size_list[num_chunk_cmp],
+    int chunk_map[num_slave], chunk_size_list[num_slave],
         pa_idx[num_chunk_cmp], pb_idx[num_chunk_cmp];
-    int send_mat[num_slave][nprocs];
+    int send_mat[num_slave][nprocs], job_mat[num_slave][num_slave];
     int countbuf[nprocs];
     memset(send_mat[0], 0, num_slave*nprocs*sizeof(int));
+    memset(job_mat[0], 0, num_slave*num_slave*sizeof(int));
     memset(chunk_map, -1, num_slave*sizeof(int));
-    num_chunk_cmp = gen_comm_mat(send_mat, pa_idx, pb_idx);
+
+    num_chunk_cmp = gen_comm_mat(send_mat, job_mat, pa_idx, pb_idx);
     bnd_far = l - r;
     r_sq_4 = r * r * 4;
     chunk_size = (n-1) / num_slave + 1;
     num_chunk = send_mat[slave_id][num_slave];
-    last_chunk_size = n % chunk_size;
-    last_chunk_size = last_chunk_size?last_chunk_size:chunk_size;
+    last_chunk_size = n - (num_slave - 1) * chunk_size;
     n = (num_chunk - 1) * chunk_size + last_chunk_size;
     num_cmp = n * (n+1) / 2;
     particles = (Particle *)malloc(num_chunk * chunk_size * sizeof(Particle));
     colli_time = (Collision *)malloc(num_cmp *sizeof(Collision));
     int colli_mat[chunk_size];
     memset(colli_mat, 0, chunk_size * sizeof(int));
-    int extra_send[chunk_size];
+    int extra_send[chunk_size * (num_chunk - 1)];
     /*
         start sim
     */
@@ -640,7 +643,7 @@ void slave()
         }
         // for(i = 0; i<count; i++)
         // {
-        //     printf("ID[%d] Pa: %d, Pb: %d, Time: %10.8f\n", myid, colli_time[i].pa, colli_time[i].pb, colli_time[i].time);
+        //     printf("ID[%d] %d %d %10.8f\n", myid, colli_time[i].pa, colli_time[i].pb, colli_time[i].time);
         // }
         // printf("ID[%d] Start gathering! #Colli: %d\n", myid, count);
         MPI_Gather(&count, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
@@ -649,7 +652,8 @@ void slave()
         for(i=0; i<count; i++)
         {
             MPI_Recv(colli_time+i, 1, Colli_Type, MASTER_ID, myid, MPI_COMM_WORLD, &Stat);
-            // printf("ID[%d] Colli[%d] %d %d %10.8f\n", myid, i, colli_time[i].pa, colli_time[i].pb, colli_time[i].time);
+            // if(step==0)
+            //     printf("ID[%d] Colli[%d] %d %d %10.8f\n", myid, i, colli_time[i].pa, colli_time[i].pb, colli_time[i].time);
         }
         for(k=0; k<count; k++)
         {
@@ -670,7 +674,7 @@ void slave()
                 if(chunk_map[i]>=0 && chunk_map[j]>=0)
                 {
                     colli->pa = chunk_map[i] * chunk_size + colli->pa % chunk_size;
-                    colli->pb = chunk_map[i] * chunk_size + colli->pb % chunk_size;
+                    colli->pb = chunk_map[j] * chunk_size + colli->pb % chunk_size;
                     // printf("ID[%d] Colli P-P_X[%d]: %d %d\n", myid, k, (particles + colli->pa)->id, (particles + colli->pb)->id);
                     if(i==slave_id)
                         colli_mat[colli->pa % chunk_size]=1;
@@ -686,8 +690,11 @@ void slave()
             }
         }
         update_particle(particles+major_chunk*chunk_size, chunk_size_list[major_chunk], colli_mat);
-        // print_particles(step+1);
-        // printf("ID[%d] extra cnt: %d\n", myid, extra_cnt);
+        // for (i = major_chunk*chunk_size; i < major_chunk*chunk_size + chunk_size_list[major_chunk]; i++) 
+        // {
+        //     printf("ID[%d] Major: %d %d %10.8lf %10.8lf %10.8lf %10.8lf\n", myid, step, particles[i].id, particles[i].x, particles[i].y,
+        //         particles[i].vx, particles[i].vy);
+        // }
         MPI_Gather(&extra_cnt, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
         offset = major_chunk * chunk_size;
         MPI_Send(particles+offset, chunk_size_list[major_chunk], Particle_Type, MASTER_ID, myid, MPI_COMM_WORLD);
@@ -695,6 +702,8 @@ void slave()
         {
             offset = extra_send[i];
             MPI_Send(particles+offset, 1, Particle_Type, MASTER_ID, myid, MPI_COMM_WORLD);
+            // printf("ID[%d] Extra: %d %d %10.8lf %10.8lf %10.8lf %10.8lf\n", myid, step, 
+            //     particles[offset].id, particles[offset].x, particles[offset].y, particles[offset].vx, particles[offset].vy);
         }
     }
     free(particles);
