@@ -4,8 +4,8 @@ Particle Collision Simulation with OpenMP and CUDA
 
 A [report](report.pdf) file can also be seen.
 
-![fig](figs/testcase2.gif)
-![fig](figs/testcase1.gif)
+<img src="figs/testcase2.gif" alt="fig" style="zoom:50%;" />
+<img src="figs/testcase1.gif" alt="fig" style="zoom:50%;" />
 
 ## File List
 
