@@ -21,6 +21,8 @@ typedef struct
     double vy;
     int colli_p;
     int colli_w;
+    // Speculative pts
+    /////////////////
 }  Particle;
 typedef struct
 {
@@ -139,6 +141,7 @@ int main()
         real_colli = 0;
         memset(colli_mat,0, N*sizeof(int));
         //start parallelism
+
         for(i=0; i<N; i++)
         {
             threads=omp_get_num_threads();
@@ -196,7 +199,7 @@ int main()
             }
             ///////////////
 #pragma omp parallel for shared(cnt,colli_time,particles,P_a) private(dx1,dy1,P_b,lambda_1,\
-                lambda_2,lambda,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD) schedule(dynamic)
+                lambda_2,lambda,dx2,dy2,Dx,Dy,DDpDD,dDmdD,Delta,dDpdD)
             for(j=i+1; j<N; j++)
             {
                 P_b = particles+j;
@@ -346,6 +349,7 @@ int main()
                 P_b->x = P_b->x + Delta*P_b->vx;
                 P_b->y = P_b->y + Delta*P_b->vy;
                 bound_pos(P_b);
+                //
             }
         }
         // Safe update
