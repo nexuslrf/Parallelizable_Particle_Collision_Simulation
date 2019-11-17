@@ -45,6 +45,7 @@ Collision *colli_time, *colli;
 
 MPI_Status Stat;
 MPI_Datatype Particle_Type, Colli_Type;
+MPI_Comm parti_comm;
 
 #define MASTER_ID 0
 
@@ -314,21 +315,7 @@ void proc_collision(Collision* colli)
 }
 
 /*
-Data distribution policy: eg. when num_slave = 5
-v0. 
-Job_mat:                 Send_mat:
-   [[1, 1, 5, 3, 5], |      [[1, 1, 0, 1, 0],
-    [0, 2, 2, 1, 4], |       [0, 1, 1, 0, 1],
-    [0, 0, 3, 3, 2], |       [1, 0, 1, 1, 0],
-    [0, 0, 0, 4, 4], |       [0, 1, 0, 1, 1],
-    [0, 0, 0, 0, 5]] |       [1, 0, 1, 0, 1]]
-v1.
-Job_mat:                 Send_mat:
-   [[1, 1, 1, 5, 5], |      [[1, 1, 1, 0, 0],
-    [0, 2, 2, 2, 4], |       [0, 1, 1, 1, 0],
-    [0, 0, 3, 3, 3], |       [0, 0, 1, 1, 1],
-    [0, 0, 0, 4, 4], |       [0, 1, 0, 1, 1],
-    [0, 0, 0, 0, 5]] |       [1, 0, 0, 1, 1]]
+Data distribution policy
 */
 int gen_comm_mat(int (*send_mat)[nprocs], int (*job_mat)[num_slave], int* pa_idx, int* pb_idx)
 {
@@ -398,6 +385,22 @@ void gen_colli_type(MPI_Datatype *Type_ptr)
     MPI_Type_commit(Type_ptr);
 }
 
+void gen_mpi_comm(int num_proc, MPI_Comm *new_comm)
+{
+    int i, group[num_proc];
+    for(i=0; i<num_proc; i++)
+        group[i] = i;
+    // Get the group or processes of the default communicator
+    MPI_Group world_group;
+    MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+
+    MPI_Group new_group;
+    MPI_Group_incl(world_group, num_proc, group, &new_group);
+    // Create the new communicator from that group of processes.
+    MPI_Comm new_communicator;
+    MPI_Comm_create(MPI_COMM_WORLD, new_group, new_comm);
+}
+
 void print_particles(int step)
 {
     int i;
@@ -435,11 +438,17 @@ void master()
     scanf("%5s", mode_buf);
     
     // Use collective func.
-    MPI_Bcast(&n, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
-    MPI_Bcast(&l, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
-    MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
-    MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+    MPI_Bcast(&n, 1, MPI_INT, MASTER_ID, parti_comm);
+    MPI_Bcast(&l, 1, MPI_INT, MASTER_ID, parti_comm);
+    MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, parti_comm);
+    MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, parti_comm);
     ///////////
+    if(n<num_slave)
+    {
+        num_slave = n;
+        nprocs = n+1;
+        gen_mpi_comm(nprocs, &parti_comm);
+    }
     int i, j, k, m, step, real_colli, extra_cnt;
     double x, y, vx, vy;
     simulation_mode_t mode;
@@ -490,18 +499,18 @@ void master()
             {
                 offset = send_mat[k][i] * chunk_size;
                 send_size = send_mat[k][i]==num_slave-1?last_chunk_size:chunk_size;
-                MPI_Send(particles+offset, send_size, Particle_Type, k+1, i, MPI_COMM_WORLD);
+                MPI_Send(particles+offset, send_size, Particle_Type, k+1, i, parti_comm);
             }
         }
         memset(colli_mat, 0, n*sizeof(int));
         // printf("ID[%d] Start gathering!\n", myid);
-        MPI_Gather(&count, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        MPI_Gather(&count, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, parti_comm);
         // printf("ID[%d] Get countbuf!\n", myid);
         count = 0;
         extra_cnt = 0;
         for(i=1; i<num_slave+1; i++)
         {
-            MPI_Recv(colli_time+count, countbuf[i], Colli_Type, i, i, MPI_COMM_WORLD, &Stat);
+            MPI_Recv(colli_time+count, countbuf[i], Colli_Type, i, i, parti_comm, &Stat);
             count += countbuf[i];
         }
         // printf("ID[%d] Get colli_time!\n", myid);
@@ -542,23 +551,23 @@ void master()
             }
         }
         // printf("ID[%d] Scatter colli_time!\n", myid);
-        MPI_Scatter(countbuf, 1, MPI_INT, &count, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        MPI_Scatter(countbuf, 1, MPI_INT, &count, 1, MPI_INT, MASTER_ID, parti_comm);
         for(i=0; i<num_slave; i++)
         {
             for(j=0; j<countbuf[i+1]; j++)
             {
                 k = colli_chunk_queue[i][j];
-                MPI_Send(colli_time+k, 1, Colli_Type, i+1, i+1, MPI_COMM_WORLD);
+                MPI_Send(colli_time+k, 1, Colli_Type, i+1, i+1, parti_comm);
             }
         }
         // printf("ID[%d] Gather extra_cnt!\n", myid);
-        MPI_Gather(&extra_cnt, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        MPI_Gather(&extra_cnt, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, parti_comm);
         offset = 0;
         // printf("ID[%d] Gather major chunk!\n", myid);
         for(i=0;i<num_slave;i++)
         {
             send_size = i!=num_slave-1?chunk_size:last_chunk_size;
-            MPI_Recv(particles+offset, send_size, Particle_Type, i+1, i+1, MPI_COMM_WORLD, &Stat);
+            MPI_Recv(particles+offset, send_size, Particle_Type, i+1, i+1, parti_comm, &Stat);
             offset += chunk_size;
         }
         // printf("ID[%d] Gather extra parti!\n", myid);
@@ -566,7 +575,7 @@ void master()
         {
             for(j=0; j<countbuf[i+1]; j++)
             {
-                MPI_Recv(&parti_buf, 1, Particle_Type, i+1, i+1, MPI_COMM_WORLD, &Stat);
+                MPI_Recv(&parti_buf, 1, Particle_Type, i+1, i+1, parti_comm, &Stat);
                 memcpy(particles+parti_buf.id, &parti_buf, sizeof(Particle));
             }
         }
@@ -582,11 +591,18 @@ void master()
 
 void slave()
 {
-    MPI_Bcast(&n, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
-    MPI_Bcast(&l, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
-    MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
-    MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
-
+    MPI_Bcast(&n, 1, MPI_INT, MASTER_ID, parti_comm);
+    MPI_Bcast(&l, 1, MPI_INT, MASTER_ID, parti_comm);
+    MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, parti_comm);
+    MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, parti_comm);
+    if(n<num_slave)
+    {
+        num_slave = n;
+        nprocs = n+1;
+        gen_mpi_comm(nprocs, &parti_comm);
+        if(slave_id>=n)
+            return;
+    }
     int i, j, k, step, num_chunk, major_chunk, num_chunk_cmp, extra_cnt;
     num_chunk_cmp = num_slave * (num_slave + 1) / 2;
     num_chunk_cmp = (num_chunk_cmp-1) / num_slave +1;
@@ -621,7 +637,7 @@ void slave()
         {
             offset = chunk_size * i;
             send_size = send_mat[slave_id][i]==num_slave-1?last_chunk_size:chunk_size;
-            MPI_Recv(particles+offset, send_size, Particle_Type, MASTER_ID, i, MPI_COMM_WORLD, &Stat);
+            MPI_Recv(particles+offset, send_size, Particle_Type, MASTER_ID, i, parti_comm, &Stat);
             if(send_mat[slave_id][i]==slave_id)
             {
                 major_chunk = i;
@@ -646,12 +662,12 @@ void slave()
         //     printf("ID[%d] %d %d %10.8f\n", myid, colli_time[i].pa, colli_time[i].pb, colli_time[i].time);
         // }
         // printf("ID[%d] Start gathering! #Colli: %d\n", myid, count);
-        MPI_Gather(&count, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
-        MPI_Send(colli_time, count, Colli_Type, MASTER_ID, myid, MPI_COMM_WORLD);
-        MPI_Scatter(countbuf, 1, MPI_INT, &count, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        MPI_Gather(&count, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, parti_comm);
+        MPI_Send(colli_time, count, Colli_Type, MASTER_ID, myid, parti_comm);
+        MPI_Scatter(countbuf, 1, MPI_INT, &count, 1, MPI_INT, MASTER_ID, parti_comm);
         for(i=0; i<count; i++)
         {
-            MPI_Recv(colli_time+i, 1, Colli_Type, MASTER_ID, myid, MPI_COMM_WORLD, &Stat);
+            MPI_Recv(colli_time+i, 1, Colli_Type, MASTER_ID, myid, parti_comm, &Stat);
             // if(step==0)
             //     printf("ID[%d] Colli[%d] %d %d %10.8f\n", myid, i, colli_time[i].pa, colli_time[i].pb, colli_time[i].time);
         }
@@ -695,13 +711,13 @@ void slave()
         //     printf("ID[%d] Major: %d %d %10.8lf %10.8lf %10.8lf %10.8lf\n", myid, step, particles[i].id, particles[i].x, particles[i].y,
         //         particles[i].vx, particles[i].vy);
         // }
-        MPI_Gather(&extra_cnt, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+        MPI_Gather(&extra_cnt, 1, MPI_INT, countbuf, 1, MPI_INT, MASTER_ID, parti_comm);
         offset = major_chunk * chunk_size;
-        MPI_Send(particles+offset, chunk_size_list[major_chunk], Particle_Type, MASTER_ID, myid, MPI_COMM_WORLD);
+        MPI_Send(particles+offset, chunk_size_list[major_chunk], Particle_Type, MASTER_ID, myid, parti_comm);
         for(i=0; i<extra_cnt; i++)
         {
             offset = extra_send[i];
-            MPI_Send(particles+offset, 1, Particle_Type, MASTER_ID, myid, MPI_COMM_WORLD);
+            MPI_Send(particles+offset, 1, Particle_Type, MASTER_ID, myid, parti_comm);
             // printf("ID[%d] Extra: %d %d %10.8lf %10.8lf %10.8lf %10.8lf\n", myid, step, 
             //     particles[offset].id, particles[offset].x, particles[offset].y, particles[offset].vx, particles[offset].vy);
         }
@@ -722,6 +738,7 @@ int main(int argc, char ** argv)
         fprintf(stderr, "#Proc >= 2 !\n");
         return 1;
     }
+    parti_comm = MPI_COMM_WORLD;
     num_slave = nprocs - 1;
     slave_id = myid - 1;
     gen_parti_type(&Particle_Type);
