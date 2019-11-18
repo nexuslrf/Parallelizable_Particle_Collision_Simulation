@@ -316,6 +316,11 @@ void proc_collision(Collision* colli)
 
 /*
 Data distribution policy
+vars:
+    send_mat: each row i represent the chunk needed by slave i, 
+        the last item of each row is the #item needed to be sent;
+    job_mat[i][j]: indicate the collision between chunk i & j is 
+        processed by slave job_mat[i][j]; 
 */
 int gen_comm_mat(int (*send_mat)[nprocs], int (*job_mat)[num_slave], int* pa_idx, int* pb_idx)
 {
@@ -385,6 +390,9 @@ void gen_colli_type(MPI_Datatype *Type_ptr)
     MPI_Type_commit(Type_ptr);
 }
 
+/*
+Customized MPI communicator
+*/
 void gen_mpi_comm(int num_proc, MPI_Comm *new_comm)
 {
     int i, group[num_proc];
