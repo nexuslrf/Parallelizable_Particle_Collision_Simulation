@@ -16,3 +16,6 @@ tmp/*
 outputs_collision_seq_inputs_20.txt
 tmp.txt
 run_prog
+mf.config
+run_mpi_mf.sh
+A0209170M_A0210064Y.zip

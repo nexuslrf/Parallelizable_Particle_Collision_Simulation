@@ -38,7 +38,7 @@ typedef struct
 
 int n, l, r, s, bnd_far, r_sq_4, num_cmp, count;
 int num_slave, myid, nprocs, slave_id, offset, send_size,
-    chunk_size, last_chunk_size, dst_id;
+    chunk_size, last_chunk_size, dst_id, valid_num_slave;
 Particle *particles, *P_a, *P_b;
 Collision *colli_time, *colli;
 
@@ -169,7 +169,7 @@ void check_pp_colli(int chunk_idx_A, int chunk_idx_B, int num_item_A, int num_it
     int offset_A, offset_B, i, j;
     offset_A = chunk_idx_A * chunk_size;
     offset_B = chunk_idx_B * chunk_size;
-    // printf("ID[%d] #Item_A: %d #Item_B: %d\n", myid, num_item_A, num_item_B);
+    printf("ID[%d] #Item_A: %d #Item_B: %d\n", myid, offset_A, offset_B);
     for(i=0; i<num_item_A; i++)
     {
         if(chunk_idx_A == chunk_idx_B)
@@ -446,17 +446,29 @@ void master()
     scanf("%5s", mode_buf);
     
     // Use collective func.
-    MPI_Bcast(&n, 1, MPI_INT, MASTER_ID, parti_comm);
-    MPI_Bcast(&l, 1, MPI_INT, MASTER_ID, parti_comm);
-    MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, parti_comm);
-    MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, parti_comm);
+    MPI_Bcast(&n, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+    MPI_Bcast(&l, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+    MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+    MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
     ///////////
-    if(n<num_slave)
+    bnd_far = l - r;
+    num_cmp = n * (n+1) / 2;
+    chunk_size = (n-1) / num_slave + 1;
+    valid_num_slave = n / chunk_size;
+    last_chunk_size = n - valid_num_slave * chunk_size;
+    if(last_chunk_size == 0)
     {
-        num_slave = n;
-        nprocs = n+1;
-        gen_mpi_comm(nprocs, &parti_comm);
+        last_chunk_size = chunk_size;
+        num_slave = valid_num_slave;
     }
+    else 
+    {
+        num_slave = valid_num_slave+1;
+    }
+    nprocs = num_slave+1;
+    gen_mpi_comm(nprocs, &parti_comm);
+    MPI_Comm_size(parti_comm, &nprocs);
+
     int i, j, k, m, step, real_colli, extra_cnt;
     double x, y, vx, vy;
     simulation_mode_t mode;
@@ -467,10 +479,6 @@ void master()
     memset(job_mat[0], 0, num_slave*num_slave*sizeof(int));
     gen_comm_mat(send_mat, job_mat, NULL, NULL);
 
-    bnd_far = l - r;
-    num_cmp = n * (n+1) / 2;
-    chunk_size = (n-1) / num_slave + 1;
-    last_chunk_size = n - (num_slave - 1) * chunk_size;
     particles = (Particle *)malloc(n * sizeof(Particle));
     int colli_chunk_queue[num_slave][n], colli_mat[n];
     j = 0;
@@ -531,7 +539,7 @@ void master()
             ////
             // if(step==0) // && (colli->pa == 0||colli->pb==0))
             // {
-            //     printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
+                // printf("[Debug:inconsist] %d %d %10.8f\n",colli->pa, colli->pb, colli->time);
             // }
             ////
             if(colli->pa<0)
@@ -599,18 +607,29 @@ void master()
 
 void slave()
 {
-    MPI_Bcast(&n, 1, MPI_INT, MASTER_ID, parti_comm);
-    MPI_Bcast(&l, 1, MPI_INT, MASTER_ID, parti_comm);
-    MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, parti_comm);
-    MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, parti_comm);
-    if(n<num_slave)
+    MPI_Bcast(&n, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+    MPI_Bcast(&l, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+    MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+    MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, MPI_COMM_WORLD);
+    bnd_far = l - r;
+    r_sq_4 = 4*r*r;
+    num_cmp = n * (n+1) / 2;
+    chunk_size = (n-1) / num_slave + 1;
+    valid_num_slave = n / chunk_size;
+    last_chunk_size = n - valid_num_slave * chunk_size;
+    if(last_chunk_size == 0)
     {
-        num_slave = n;
-        nprocs = n+1;
-        gen_mpi_comm(nprocs, &parti_comm);
-        if(slave_id>=n)
-            return;
+        last_chunk_size = chunk_size;
+        num_slave = valid_num_slave;
     }
+    else 
+    {
+        num_slave = valid_num_slave+1;
+    }
+    nprocs = num_slave+1;
+    gen_mpi_comm(nprocs, &parti_comm);
+    if(slave_id>=num_slave)
+        return;
     int i, j, k, step, num_chunk, major_chunk, num_chunk_cmp, extra_cnt;
     num_chunk_cmp = num_slave * (num_slave + 1) / 2;
     num_chunk_cmp = (num_chunk_cmp-1) / num_slave +1;
@@ -623,14 +642,10 @@ void slave()
     memset(chunk_map, -1, num_slave*sizeof(int));
 
     num_chunk_cmp = gen_comm_mat(send_mat, job_mat, pa_idx, pb_idx);
-    bnd_far = l - r;
-    r_sq_4 = r * r * 4;
-    chunk_size = (n-1) / num_slave + 1;
     num_chunk = send_mat[slave_id][num_slave];
-    last_chunk_size = n - (num_slave - 1) * chunk_size;
-    n = (num_chunk - 1) * chunk_size + last_chunk_size;
+    n = num_chunk * chunk_size;
     num_cmp = n * (n+1) / 2;
-    particles = (Particle *)malloc(num_chunk * chunk_size * sizeof(Particle));
+    particles = (Particle *)malloc(n * sizeof(Particle));
     colli_time = (Collision *)malloc(num_cmp *sizeof(Collision));
     int colli_mat[chunk_size];
     memset(colli_mat, 0, chunk_size * sizeof(int));
@@ -663,6 +678,7 @@ void slave()
         {
             i = chunk_map[pa_idx[k]];
             j = chunk_map[pb_idx[k]];
+            // printf("pp: %d %d %d %d\n", i, j, chunk_size_list[i], chunk_size_list[j]);
             check_pp_colli(i, j, chunk_size_list[i], chunk_size_list[j]);
         }
         // for(i = 0; i<count; i++)
@@ -746,7 +762,7 @@ int main(int argc, char ** argv)
         fprintf(stderr, "#Proc >= 2 !\n");
         return 1;
     }
-    parti_comm = MPI_COMM_WORLD;
+    // parti_comm = MPI_COMM_WORLD;
     num_slave = nprocs - 1;
     slave_id = myid - 1;
     gen_parti_type(&Particle_Type);

@@ -456,12 +456,24 @@ void master()
     MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, parti_comm);
     MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, parti_comm);
     ///////////
-    if(n<num_slave)
+    bnd_far = l - r;
+    num_cmp = n * (n+1) / 2;
+    chunk_size = (n-1) / num_slave + 1;
+    valid_num_slave = n / chunk_size;
+    last_chunk_size = n - valid_num_slave * chunk_size;
+    if(last_chunk_size == 0)
     {
-        num_slave = n;
-        nprocs = n+1;
-        gen_mpi_comm(nprocs, &parti_comm);
+        last_chunk_size = chunk_size;
+        num_slave = valid_num_slave;
     }
+    else 
+    {
+        num_slave = valid_num_slave+1;
+    }
+    nprocs = num_slave+1;
+    gen_mpi_comm(nprocs, &parti_comm);
+    MPI_Comm_size(parti_comm, &nprocs);
+
     int i, j, k, m, step, real_colli, extra_cnt;
     double x, y, vx, vy;
     simulation_mode_t mode;
@@ -472,10 +484,6 @@ void master()
     memset(job_mat[0], 0, num_slave*num_slave*sizeof(int));
     gen_comm_mat(send_mat, job_mat, NULL, NULL);
 
-    bnd_far = l - r;
-    num_cmp = n * (n+1) / 2;
-    chunk_size = (n-1) / num_slave + 1;
-    last_chunk_size = n - (num_slave - 1) * chunk_size;
     particles = (Particle *)malloc(n * sizeof(Particle));
     int colli_chunk_queue[num_slave][n], colli_mat[n];
     j = 0;
@@ -604,14 +612,25 @@ void slave()
     MPI_Bcast(&l, 1, MPI_INT, MASTER_ID, parti_comm);
     MPI_Bcast(&r, 1, MPI_INT, MASTER_ID, parti_comm);
     MPI_Bcast(&s, 1, MPI_INT, MASTER_ID, parti_comm);
-    if(n<num_slave)
+    bnd_far = l - r;
+    r_sq_4 = 4*r*r;
+    num_cmp = n * (n+1) / 2;
+    chunk_size = (n-1) / num_slave + 1;
+    valid_num_slave = n / chunk_size;
+    last_chunk_size = n - valid_num_slave * chunk_size;
+    if(last_chunk_size == 0)
     {
-        num_slave = n;
-        nprocs = n+1;
-        gen_mpi_comm(nprocs, &parti_comm);
-        if(slave_id>=n)
-            return;
+        last_chunk_size = chunk_size;
+        num_slave = valid_num_slave;
     }
+    else 
+    {
+        num_slave = valid_num_slave+1;
+    }
+    nprocs = num_slave+1;
+    gen_mpi_comm(nprocs, &parti_comm);
+    if(slave_id>=num_slave)
+        return;
     int i, j, k, step, num_chunk, major_chunk, num_chunk_cmp, extra_cnt;
     num_chunk_cmp = num_slave * (num_slave + 1) / 2;
     num_chunk_cmp = (num_chunk_cmp-1) / num_slave +1;
@@ -624,12 +643,8 @@ void slave()
     memset(chunk_map, -1, num_slave*sizeof(int));
 
     num_chunk_cmp = gen_comm_mat(send_mat, job_mat, pa_idx, pb_idx);
-    bnd_far = l - r;
-    r_sq_4 = r * r * 4;
-    chunk_size = (n-1) / num_slave + 1;
     num_chunk = send_mat[slave_id][num_slave];
-    last_chunk_size = n - (num_slave - 1) * chunk_size;
-    n = (num_chunk - 1) * chunk_size + last_chunk_size;
+    n = num_chunk * chunk_size;
     num_cmp = n * (n+1) / 2;
     particles = (Particle *)malloc(num_chunk * chunk_size * sizeof(Particle));
     colli_time = (Collision *)malloc(num_cmp *sizeof(Collision));
