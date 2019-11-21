@@ -39,7 +39,7 @@ typedef struct
 
 int n, l, r, s, bnd_far, r_sq_4, num_cmp, count;
 int num_slave, myid, nprocs, slave_id, offset, send_size,
-    chunk_size, last_chunk_size, dst_id;
+    chunk_size, last_chunk_size, dst_id, valid_num_slave;
 Particle *particles, *P_a, *P_b;
 Collision *colli_time, *colli;
 

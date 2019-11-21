@@ -169,7 +169,6 @@ void check_pp_colli(int chunk_idx_A, int chunk_idx_B, int num_item_A, int num_it
     int offset_A, offset_B, i, j;
     offset_A = chunk_idx_A * chunk_size;
     offset_B = chunk_idx_B * chunk_size;
-    printf("ID[%d] #Item_A: %d #Item_B: %d\n", myid, offset_A, offset_B);
     for(i=0; i<num_item_A; i++)
     {
         if(chunk_idx_A == chunk_idx_B)
